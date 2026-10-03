@@ -225,7 +225,10 @@
             <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartWithWindows}" />
           </Grid>
           <Grid Classes="setting" ColumnDefinitions="*,Auto">
-            <TextBlock Text="Start hidden in the tray" VerticalAlignment="Center" />
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Start hidden in the tray" />
+              <TextBlock Text="When Windows starts Playnest at sign-in. Opening Playnest yourself always shows the window." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
             <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartMinimized}" />
           </Grid>
           <Separator Classes="thin" />
@@ -453,6 +456,23 @@
       <Border Classes="card">
         <StackPanel Spacing="10">
           <TextBlock Text="{Binding VersionText}" FontWeight="SemiBold" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Check for updates automatically" />
+              <TextBlock Text="Once a day Playnest asks GitHub whether a newer version has been released. Nothing is downloaded or installed for you." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding CheckForUpdates}" />
+          </Grid>
+          <WrapPanel>
+            <Button Content="Check for updates now" Command="{Binding CheckUpdatesNowCommand}" IsEnabled="{Binding !IsCheckingUpdate}" Margin="0,0,8,0" />
+            <Button Content="Open download page" Classes="accent" Command="{Binding OpenUpdatePageCommand}" IsVisible="{Binding HasUpdate}" />
+          </WrapPanel>
+          <TextBlock Text="{Binding UpdateStatusText}" IsVisible="{Binding HasUpdateStatus}" TextWrapping="Wrap" />
+          <Border Classes="card" IsVisible="{Binding HasUpdateNotes}" MaxHeight="220">
+            <ScrollViewer>
+              <SelectableTextBlock Text="{Binding UpdateNotes}" TextWrapping="Wrap" Classes="subtle small" />
+            </ScrollViewer>
+          </Border>
           <StackPanel>
             <TextBlock Text="Data folder" Classes="subtle small" />
             <SelectableTextBlock Text="{Binding DataFolder}" />

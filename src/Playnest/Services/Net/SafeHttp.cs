@@ -8,7 +8,7 @@ namespace Playnest.Services.Net;
 /// The only way Playnest talks to the internet. Every request goes through these checks:
 /// <list type="bullet">
 /// <item>HTTPS only, with normal certificate validation (never disabled).</item>
-/// <item>Only a fixed list of hosts (Steam, Epic, SteamGridDB) — anything else is refused, including redirects to it.</item>
+/// <item>Only a fixed list of hosts (Steam, Epic, SteamGridDB, GitHub's API for update checks) — anything else is refused, including redirects to it.</item>
 /// <item>Redirects are followed manually (max 3) and each hop is checked again; downgrades to HTTP are refused.</item>
 /// <item>Responses are size-capped while reading (also protects against compressed "zip bombs").</item>
 /// <item>No cookies are stored or sent, and the SteamGridDB key is only ever sent to steamgriddb.com.</item>
@@ -32,6 +32,7 @@ public static class SafeHttp
         ".unrealengine.com",       // cdn2.unrealengine.com (older Epic store images)
         "www.steamgriddb.com",
         "cdn2.steamgriddb.com",
+        "api.github.com",          // update check: reads the latest release's version only
     ];
 
     /// <summary>Tests can substitute the network layer (set before the first request).</summary>

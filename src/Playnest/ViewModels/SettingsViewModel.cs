@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Playnest.Models;
 using Playnest.Services;
 using Playnest.Services.Artwork;
+using Playnest.Services.Net;
 using Playnest.Services.Platform;
 
 namespace Playnest.ViewModels;
@@ -184,7 +185,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public static void ApplyStartup(AppSettings s)
     {
         var exe = Environment.ProcessPath;
-        string? wanted = s.StartWithWindows && exe is not null ? $"\"{exe}\" --minimized" : null;
+        string? wanted = s.StartWithWindows && exe is not null ? $"\"{exe}\" --autostart" : null;
         var current = Reg.GetRunAtStartup("Playnest");
         if (string.Equals(current, wanted, StringComparison.OrdinalIgnoreCase)) return;
         Reg.SetRunAtStartup("Playnest", wanted);
@@ -354,7 +355,51 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // ------------------------------------------------------------------ About / data
 
-    public string VersionText => $"Playnest {typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3)}";
+    public string VersionText => $"Playnest {UpdateService.Display(UpdateService.CurrentVersion)}";
+
+    public bool CheckForUpdates { get => S.CheckForUpdates; set => Set(S.CheckForUpdates, value, v => S.CheckForUpdates = v); }
+
+    [ObservableProperty] public partial string UpdateStatusText { get; set; } = "";
+    [ObservableProperty] public partial string UpdateNotes { get; set; } = "";
+    [ObservableProperty] public partial bool HasUpdate { get; set; }
+    [ObservableProperty] public partial bool IsCheckingUpdate { get; set; }
+    private UpdateInfo? _update;
+
+    public bool HasUpdateStatus => UpdateStatusText.Length > 0;
+    public bool HasUpdateNotes => UpdateNotes.Length > 0;
+    partial void OnUpdateStatusTextChanged(string value) => OnPropertyChanged(nameof(HasUpdateStatus));
+    partial void OnUpdateNotesChanged(string value) => OnPropertyChanged(nameof(HasUpdateNotes));
+
+    [RelayCommand]
+    private async Task CheckUpdatesNow()
+    {
+        if (IsCheckingUpdate) return;
+        IsCheckingUpdate = true;
+        UpdateStatusText = "Checking…";
+        try { ShowUpdateResult(await _main.CheckForUpdatesAsync(manual: true)); }
+        finally { IsCheckingUpdate = false; }
+    }
+
+    [RelayCommand]
+    private void OpenUpdatePage()
+    {
+        if (_update is not null) _main.OpenUpdatePage(_update);
+    }
+
+    /// <summary>Shows the result of the last check (also the automatic one) when the settings page opens.</summary>
+    public void ShowUpdateResult(UpdateResult? r)
+    {
+        _update = r?.Info;
+        HasUpdate = r?.Status == UpdateStatus.Available;
+        UpdateNotes = r?.Info?.Notes ?? "";
+        UpdateStatusText = r?.Status switch
+        {
+            UpdateStatus.Available => $"{r.Info!.Title} is available. You have {UpdateService.Display(UpdateService.CurrentVersion)}.",
+            UpdateStatus.UpToDate => "You have the latest version.",
+            UpdateStatus.Failed => "Couldn't check for updates. There may be no internet connection, or no public release has been published yet.",
+            _ => "",
+        };
+    }
     public string DataFolder => AppPaths.DataDir;
 
     [RelayCommand]
@@ -427,6 +472,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         (s => s.SortDescending, (s, v) => s.SortDescending = (bool)v!), (s => s.FavoritesFirst, (s, v) => s.FavoritesFirst = (bool)v!),
         (s => s.HoverEffects, (s, v) => s.HoverEffects = (bool)v!), (s => s.DoubleClick, (s, v) => s.DoubleClick = (DoubleClickAction)v!),
         (s => s.QuickPlay, (s, v) => s.QuickPlay = (QuickPlayMode)v!),
+        (s => s.CheckForUpdates, (s, v) => s.CheckForUpdates = (bool)v!),
         (s => s.OnGameLaunch, (s, v) => s.OnGameLaunch = (LaunchBehavior)v!), (s => s.RestoreAfterGameExit, (s, v) => s.RestoreAfterGameExit = (bool)v!),
         (s => s.CloseToTray, (s, v) => s.CloseToTray = (bool)v!), (s => s.StartMinimized, (s, v) => s.StartMinimized = (bool)v!),
         (s => s.TrackPlaytime, (s, v) => s.TrackPlaytime = (bool)v!), (s => s.ImportSteamPlaytime, (s, v) => s.ImportSteamPlaytime = (bool)v!),

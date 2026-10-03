@@ -41,7 +41,6 @@ public partial class App : Application
             SettingsViewModel.ApplyStartup(Settings);
 
             SetupTray();
-            desktop.MainWindow = _window;
             desktop.ShutdownRequested += (_, _) => _vm.FlushOnExit();
             desktop.Exit += (_, _) => { _tray?.Dispose(); Single?.Dispose(); };
             Single?.ListenForActivation(() => Dispatcher.UIThread.Post(ShowMainWindow));
@@ -49,10 +48,13 @@ public partial class App : Application
             if (StartHidden)
             {
                 // Stay in the tray; nothing is rendered until the window is opened.
+                // MainWindow is assigned only when the window is first shown: Avalonia shows the
+                // MainWindow automatically at start-up, which would open it with artwork switched off.
                 _vm.SuspendImages();
             }
             else
             {
+                desktop.MainWindow = _window;
                 _window.Show();
             }
 
@@ -119,6 +121,7 @@ public partial class App : Application
     public void ShowMainWindow()
     {
         if (_window is null) return;
+        if (_desktop is not null) _desktop.MainWindow ??= _window;
         _vm?.ResumeImages();
         if (!_window.IsVisible) _window.Show();
         if (_window.WindowState == WindowState.Minimized) _window.WindowState = Settings.WindowMaximized ? WindowState.Maximized : WindowState.Normal;

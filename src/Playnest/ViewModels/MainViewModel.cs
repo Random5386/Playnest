@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Playnest.Models;
 using Playnest.Services;
+using Playnest.Services.Net;
 using Playnest.Services.Artwork;
 using Playnest.Services.Platform;
 using Playnest.Services.Scanning;
@@ -64,6 +65,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         if (value != AppPage.Settings) return;
         SettingsPage.UpdateMemory();
         SettingsPage.UpdateCacheSize();
+        if (LastUpdateResult is { Status: not UpdateStatus.Failed } r && !SettingsPage.IsCheckingUpdate) SettingsPage.ShowUpdateResult(r);
     }
 
     public bool IsLibraryPage => CurrentPage == AppPage.Library;
@@ -136,6 +138,42 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         {
             DispatcherTimer.RunOnce(StartSizeCalculation, TimeSpan.FromSeconds(15));
         }
+        DispatcherTimer.RunOnce(() => _ = CheckForUpdatesAsync(manual: false), TimeSpan.FromSeconds(20));
+    }
+
+    // ------------------------------------------------------------------ updates
+
+    public UpdateResult? LastUpdateResult { get; private set; }
+
+    /// <summary>
+    /// Asks GitHub for the latest release. Automatic checks run at most once a day and only when enabled,
+    /// and only show a small notice. Nothing is ever downloaded or installed.
+    /// </summary>
+    public async Task<UpdateResult?> CheckForUpdatesAsync(bool manual)
+    {
+        if (!manual)
+        {
+            if (!Settings.CheckForUpdates) return null;
+            if (Settings.LastUpdateCheckUtc is DateTime last && DateTime.UtcNow - last < TimeSpan.FromHours(24)) return null;
+        }
+        var result = await Task.Run(() => UpdateService.CheckAsync(UpdateService.CurrentVersion));
+        LastUpdateResult = result;
+        if (result.Status != UpdateStatus.Failed)
+        {
+            Settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            SaveSettingsSoon();
+        }
+        if (!manual && result is { Status: UpdateStatus.Available, Info: { } info })
+            ShowToast($"Playnest {UpdateService.Display(info.Version)} is available.", actionText: "Download", action: () => OpenUpdatePage(info));
+        return result;
+    }
+
+    public void OpenUpdatePage(UpdateInfo info)
+    {
+        // The link is built by UpdateService from the fixed repository name, but check it again before opening.
+        if (!info.PageUrl.StartsWith($"https://github.com/{UpdateService.Repository}/releases/", StringComparison.Ordinal)) return;
+        try { LaunchService.OpenPath(info.PageUrl); }
+        catch (Exception ex) { ShowToast("Couldn't open the browser: " + ex.Message, error: true); }
     }
 
     /// <summary>Measures missing install sizes in the background (low priority).</summary>
@@ -895,7 +933,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     {
         CurrentToast = new Toast { Message = message, IsError = error, ActionText = actionText, Action = action };
         _toastTimer?.Stop();
-        _toastTimer = new DispatcherTimer(TimeSpan.FromSeconds(error ? 8 : 4.5), DispatcherPriority.Background, (_, _) =>
+        _toastTimer = new DispatcherTimer(TimeSpan.FromSeconds(error || actionText is not null ? 8 : 4.5), DispatcherPriority.Background, (_, _) =>
         {
             _toastTimer?.Stop();
             CurrentToast = null;

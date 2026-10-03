@@ -528,6 +528,32 @@ Section("Network safety (everything that touches the internet)");
     Eq("none", System.Text.Encoding.UTF8.GetString(SafeHttp.GetBytesAsync("https://www.steamgriddb.com/api/v2/x", 1 << 20, "SECRETKEY123").Result ?? []), "API key never forwarded to another host");
     Check(handler.Requests.All(u => u.StartsWith("https://") && !u.Contains("evil.com")), "no request ever reached a non-allowed host", string.Join(", ", handler.Requests));
 
+    // Update check (GitHub releases)
+    var v100 = new Version(1, 0, 0);
+    Check(SafeHttp.IsAllowed("https://api.github.com/repos/a/b/releases/latest"), "GitHub API allowed for update checks");
+    Check(!SafeHttp.IsAllowed("https://github.com/a/b/releases") && !SafeHttp.IsAllowed("https://objects.githubusercontent.com/x"), "only GitHub's API host, not downloads");
+    Eq(new Version(1, 2, 3, 0), UpdateService.ParseTag("v1.2.3"), "tag v1.2.3");
+    Eq(new Version(2, 0, 0, 0), UpdateService.ParseTag("2.0"), "tag 2.0");
+    foreach (var bad in new[] { "latest", "v1", "1.2.3-beta", "v1.2.3/../../x", "1.2.3 ", "", "v99999999.0" })
+        Check(UpdateService.ParseTag(bad) is null, $"bad tag refused: «{bad}»");
+    var rel = UpdateService.Evaluate("""{"tag_name":"v1.0.1","name":"Playnest 1.0.1","body":"Fixes\r\n- quick play\u202E evil","html_url":"https://evil.com/x","draft":false,"prerelease":false}""", v100);
+    Check(rel.Status == UpdateStatus.Available, "newer release found");
+    Eq($"https://github.com/{UpdateService.Repository}/releases/tag/v1.0.1", rel.Info?.PageUrl, "release page is built locally, html_url from the response is ignored");
+    Check(rel.Info?.Notes == "Fixes\n- quick play evil", "release notes are plain text without control/format characters", rel.Info?.Notes);
+    Eq(UpdateStatus.UpToDate, UpdateService.Evaluate("""{"tag_name":"v1.0.0"}""", new Version(1, 0, 0, 0)).Status, "same version is up to date");
+    Eq("What changed\n- **Faster** scans".Replace("**", ""), UpdateService.TidyMarkdown("## What changed\n- **Faster** scans"), "markdown headings/bold tidied");
+    Eq(UpdateStatus.UpToDate, UpdateService.Evaluate("""{"tag_name":"v0.9.5"}""", v100).Status, "older release ignored");
+    Eq(UpdateStatus.UpToDate, UpdateService.Evaluate("""{"tag_name":"v2.0.0","prerelease":true}""", v100).Status, "pre-release ignored");
+    Eq(UpdateStatus.Failed, UpdateService.Evaluate("""{"tag_name":"v2.0.0-rc"}""", v100).Status, "odd tag = failed check");
+    Eq(UpdateStatus.Failed, UpdateService.Evaluate("not json", v100).Status, "garbage = failed check");
+    Eq(UpdateStatus.Failed, UpdateService.Evaluate("[1,2]", v100).Status, "wrong shape = failed check");
+    Check(UpdateService.Evaluate("{\"tag_name\":\"v9.0.0\",\"body\":\"" + new string('x', 50_000) + "\"}", v100).Info?.Notes.Length <= 1501, "long notes are shortened");
+    handler.Routes[UpdateService.LatestReleaseApiUrl] = _ => Ok(System.Text.Encoding.UTF8.GetBytes("""{"tag_name":"v3.1.0","name":"Big update"}"""));
+    var live = UpdateService.CheckAsync(v100).Result;
+    Check(live.Status == UpdateStatus.Available && live.Info!.Version == new Version(3, 1, 0, 0), "update check end-to-end through SafeHttp");
+    handler.Routes[UpdateService.LatestReleaseApiUrl] = _ => Redirect("https://evil.com/release.json");
+    Eq(UpdateStatus.Failed, UpdateService.CheckAsync(v100).Result.Status, "update check refuses redirect to another host");
+
     // What is accepted from responses
     var bomb = Png.Encode(new byte[4 * 4 * 4], 4, 4);
     BinaryPrimitives.WriteInt32BigEndian(bomb.AsSpan(16), 60000); // header claims 60 000 px wide

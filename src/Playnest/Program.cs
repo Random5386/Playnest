@@ -29,7 +29,8 @@ internal static class Program
             Storage.SaveSettings(settings);
         }
         App.Settings = settings;
-        App.StartHidden = args.Contains("--minimized") || settings.StartMinimized;
+        // "Start hidden" applies when Windows starts Playnest at sign-in; opening it yourself always shows the window.
+        App.StartHidden = args.Contains("--minimized") || (args.Contains("--autostart") && settings.StartMinimized);
         App.Single = single;
 
         try

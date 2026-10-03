@@ -92,6 +92,7 @@ public partial class MainWindow : Window, IUiService
         _hiddenToTray = false;
     }
 
+
     public bool IsHiddenToTray => _hiddenToTray || !IsVisible;
 
     public void HideForGame(LaunchBehavior behavior)
@@ -192,6 +193,8 @@ public partial class MainWindow : Window, IUiService
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        // Whenever the window becomes visible, however it was opened, artwork must be switched back on.
+        if (change.Property == IsVisibleProperty && change.GetNewValue<bool>()) _vm?.ResumeImages();
         if (change.Property == ActualTransparencyLevelProperty && _vm is not null)
         {
             var s = _vm.Settings;

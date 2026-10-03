@@ -99,4 +99,9 @@ public sealed class AppSettings
     public double WindowHeight { get; set; } = 780;
     public bool WindowMaximized { get; set; }
     public string LastFilter { get; set; } = "all";
+
+    // ---------- Updates ----------
+    /// <summary>Once a day, ask GitHub whether a newer release exists (nothing is downloaded).</summary>
+    public bool CheckForUpdates { get; set; } = true;
+    public DateTime? LastUpdateCheckUtc { get; set; }
 }

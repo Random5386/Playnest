@@ -48,13 +48,14 @@ Built with C# / .NET 10 and Avalonia, compiled ahead-of-time (NativeAOT) into a 
 
 Everything that touches the internet goes through one place (`Services/Net/SafeHttp.cs`):
 
-- **What it can contact:** HTTPS only, to a fixed list of hosts: Steam's store/API/CDN, Epic's image CDN and SteamGridDB. Any other host is refused, including redirects to one.
+- **What it can contact:** HTTPS only, to a fixed list of hosts: Steam's store/API/CDN, Epic's image CDN, SteamGridDB and GitHub's API (update check). Any other host is refused, including redirects to one.
 - **Redirects:** followed by hand (at most 3), with every hop checked again. Downgrades to HTTP are refused.
 - **Responses:** size-limited while reading (15 MB for images, 4 MB for JSON), which also stops compressed "zip bombs".
 - **Connections:** no cookies and short timeouts. The SteamGridDB key is sent only to `www.steamgriddb.com`.
 - **Images:** a download is only accepted if its header says it's a real JPEG/PNG/WebP with sane dimensions. A tiny file claiming 60 000 px is refused before it reaches the decoder.
 - **API data:** values from Steam's API (file names, ids, icon hashes) are pattern-checked before they're used in a URL.
 - **Disk:** downloaded files are saved under fixed names in Playnest's cache folder; nothing from the network decides a file path.
+- **Update check:** once a day (can be turned off) Playnest reads the version number of the latest release on GitHub. It never downloads or runs anything: it shows a notice, and the release page it opens is built from the fixed repository name, not from a link in the response.
 - **What leaves your PC:** only game names (to find covers on Steam/Epic, or SteamGridDB if you add a key). There's no telemetry, and the build scripts turn Avalonia's build telemetry off.
 
 On your PC:
@@ -68,6 +69,11 @@ On your PC:
 ## Build
 
 Requirements: Windows 10/11 and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+The easiest way: **double-click `publish.cmd`**. It builds the native exe, falls back to the portable build if
+the C++ tools aren't installed, and opens the output folder when it's done.
+
+Or from PowerShell:
 
 ```powershell
 # Native build (smallest, fastest). Needs Visual Studio's "Desktop development with C++" workload.
@@ -89,6 +95,15 @@ The core logic (scanners, parsers, classifier, artwork, library merging) has a d
 ```powershell
 dotnet run --project tests/Playnest.Tests
 ```
+
+## Releasing an update
+
+1. Raise `<Version>` in `src/Playnest/Playnest.csproj` (e.g. `1.0.0` → `1.0.1` for fixes, `1.1.0` for new features) and commit.
+2. Double-click `publish.cmd`.
+3. On GitHub: **Releases → Draft a new release**, tag `v1.0.1` (must match the version), write what changed, attach `publish\Playnest\Playnest.exe` (or a zip of that folder) and publish.
+4. Copies of Playnest with "Check for updates" on will show "Playnest 1.0.1 is available" within a day. The repository must be public for others to see releases.
+
+The repository Playnest checks is set in `Services/Net/UpdateService.cs` (`Repository`).
 
 ## Where data is stored
 
