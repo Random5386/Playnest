@@ -1,0 +1,131 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Playnest.ViewModels"
+             x:Class="Playnest.Views.DetailsPanel"
+             x:DataType="vm:MainViewModel">
+
+  <Border Background="{DynamicResource ContentBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,0,0">
+    <ContentControl Content="{Binding SelectedGame}">
+      <ContentControl.ContentTemplate>
+        <DataTemplate x:DataType="vm:GameViewModel">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+              <!-- Hero -->
+              <Panel Height="200" Background="{Binding Placeholder}" ClipToBounds="True">
+                <Image Source="{Binding Backdrop}" Stretch="UniformToFill" />
+                <Border>
+                  <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,40%" EndPoint="0%,100%">
+                      <GradientStop Color="#00000000" Offset="0" />
+                      <GradientStop Color="#CC000000" Offset="1" />
+                    </LinearGradientBrush>
+                  </Border.Background>
+                </Border>
+                <Panel Width="64" Height="64" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="18,0,0,14">
+                  <Image Source="{Binding Icon}" Stretch="Uniform" />
+                </Panel>
+                <Button Classes="flat" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Padding="8"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).CloseDetailsCommand}" ToolTip.Tip="Close (Esc)">
+                  <TextBlock Classes="glyph" Text="&#xE711;" FontSize="12" Foreground="White" />
+                </Button>
+              </Panel>
+
+              <StackPanel Margin="20,14,20,20" Spacing="14">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Name}" Classes="h1" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding SourceFull}" Classes="subtle" />
+                </StackPanel>
+
+                <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,10"
+                        Command="{Binding PlayCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Classes="glyph" Text="&#xE768;" Foreground="{DynamicResource AccentForegroundBrush}" />
+                    <TextBlock Text="Play" FontWeight="SemiBold" FontSize="16" />
+                  </StackPanel>
+                </Button>
+                <TextBlock Text="Running now" Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsRunning}" HorizontalAlignment="Center" />
+
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                  <Border Classes="card" Margin="0,0,5,10">
+                    <StackPanel>
+                      <TextBlock Text="Playtime" Classes="subtle small" />
+                      <TextBlock Text="{Binding PlaytimeText}" FontWeight="SemiBold" />
+                    </StackPanel>
+                  </Border>
+                  <Border Grid.Column="1" Classes="card" Margin="5,0,0,10">
+                    <StackPanel>
+                      <TextBlock Text="Last played" Classes="subtle small" />
+                      <TextBlock Text="{Binding LastPlayedText}" FontWeight="SemiBold" />
+                    </StackPanel>
+                  </Border>
+                  <Border Grid.Row="1" Classes="card" Margin="0,0,5,0">
+                    <StackPanel>
+                      <TextBlock Text="Size on disk" Classes="subtle small" />
+                      <TextBlock Text="{Binding SizeText}" FontWeight="SemiBold" />
+                    </StackPanel>
+                  </Border>
+                  <Border Grid.Row="1" Grid.Column="1" Classes="card" Margin="5,0,0,0">
+                    <StackPanel>
+                      <TextBlock Text="Store" Classes="subtle small" />
+                      <TextBlock Text="{Binding SourceLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+                <StackPanel Spacing="4" IsVisible="{Binding HasFolder}">
+                  <TextBlock Text="Install folder" Classes="subtle small" />
+                  <SelectableTextBlock Text="{Binding InstallDir}" TextWrapping="Wrap" FontSize="12" />
+                </StackPanel>
+
+                <UniformGrid Columns="2">
+                  <Button Classes="tool" HorizontalAlignment="Stretch" Margin="0,0,4,8" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="glyph" Text="&#xE8B7;" FontSize="13" />
+                      <TextBlock Text="Open folder" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tool" HorizontalAlignment="Stretch" Margin="4,0,0,8" Command="{Binding ToggleFavoriteCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="glyph" Text="&#xE734;" FontSize="13" />
+                      <TextBlock Text="Favourite" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tool" HorizontalAlignment="Stretch" Margin="0,0,4,8" Command="{Binding EditCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="glyph" Text="&#xE70F;" FontSize="13" />
+                      <TextBlock Text="Edit" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tool" HorizontalAlignment="Stretch" Margin="4,0,0,8" Command="{Binding ChangeCoverCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="glyph" Text="&#xE8B9;" FontSize="13" />
+                      <TextBlock Text="Cover…" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tool danger" HorizontalAlignment="Stretch" Margin="0,0,4,8" Command="{Binding UninstallCommand}" IsEnabled="{Binding CanUninstall}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="glyph" Text="&#xE74D;" FontSize="13" />
+                      <TextBlock Text="Uninstall" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tool" HorizontalAlignment="Stretch" Margin="4,0,0,8" Command="{Binding RemoveCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="glyph" Text="&#xE738;" FontSize="13" />
+                      <TextBlock Text="Remove" />
+                    </StackPanel>
+                  </Button>
+                </UniformGrid>
+                <Button Classes="flat" HorizontalAlignment="Left" Command="{Binding RefreshArtworkCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="glyph" Text="&#xE72C;" FontSize="12" />
+                    <TextBlock Text="Find artwork again" Classes="small" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </DataTemplate>
+      </ContentControl.ContentTemplate>
+    </ContentControl>
+  </Border>
+</UserControl>

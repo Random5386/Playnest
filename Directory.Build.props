@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Package versions in one place -->
+    <AvaloniaVersion>11.3.*</AvaloniaVersion>
+    <MvvmVersion>8.4.*</MvvmVersion>
+  </PropertyGroup>
+</Project>

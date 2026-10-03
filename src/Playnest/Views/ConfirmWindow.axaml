@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Playnest.Views.ConfirmWindow"
+        Width="460" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource DialogBrush}"
+        FontFamily="{DynamicResource AppFontFamily}" FontSize="{DynamicResource AppFontSize}"
+        Title="Playnest">
+  <StackPanel Margin="24" Spacing="16">
+    <TextBlock Name="TitleText" Classes="h2" TextWrapping="Wrap" />
+    <TextBlock Name="MessageText" TextWrapping="Wrap" Classes="subtle" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+      <Button Name="CancelButton" Content="Cancel" IsCancel="True" MinWidth="90" HorizontalContentAlignment="Center" />
+      <Button Name="OkButton" Classes="accent" IsDefault="True" MinWidth="90" HorizontalContentAlignment="Center" />
+    </StackPanel>
+  </StackPanel>
+</Window>

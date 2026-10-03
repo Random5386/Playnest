@@ -1,0 +1,71 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Playnest.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppBackgroundBrush" Color="#141418" />
+          <SolidColorBrush x:Key="ContentBrush" Color="#CC1B1B21" />
+          <SolidColorBrush x:Key="ContentSolidBrush" Color="#1B1B21" />
+          <SolidColorBrush x:Key="SidebarBrush" Color="#00000000" />
+          <SolidColorBrush x:Key="CardBrush" Color="#0FFFFFFF" />
+          <SolidColorBrush x:Key="CardHoverBrush" Color="#1AFFFFFF" />
+          <SolidColorBrush x:Key="CardBorderBrush" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="SubtleTextBrush" Color="#A3A3AE" />
+          <SolidColorBrush x:Key="TileShadeBrush" Color="#99000000" />
+          <SolidColorBrush x:Key="DangerBrush" Color="#FF6B6B" />
+          <SolidColorBrush x:Key="ToastBrush" Color="#F02A2A33" />
+          <SolidColorBrush x:Key="DialogBrush" Color="#202027" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppBackgroundBrush" Color="#EEF0F4" />
+          <SolidColorBrush x:Key="ContentBrush" Color="#D9FFFFFF" />
+          <SolidColorBrush x:Key="ContentSolidBrush" Color="#FAFAFC" />
+          <SolidColorBrush x:Key="SidebarBrush" Color="#00FFFFFF" />
+          <SolidColorBrush x:Key="CardBrush" Color="#0A000000" />
+          <SolidColorBrush x:Key="CardHoverBrush" Color="#14000000" />
+          <SolidColorBrush x:Key="CardBorderBrush" Color="#12000000" />
+          <SolidColorBrush x:Key="SubtleTextBrush" Color="#5E5E6B" />
+          <SolidColorBrush x:Key="TileShadeBrush" Color="#88000000" />
+          <SolidColorBrush x:Key="DangerBrush" Color="#D93636" />
+          <SolidColorBrush x:Key="ToastBrush" Color="#F7FFFFFF" />
+          <SolidColorBrush x:Key="DialogBrush" Color="#F7F7FA" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <!-- Icon font that ships with Windows 10/11 -->
+      <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+      <!-- Overwritten at runtime by ThemeService / LayoutResources -->
+      <Color x:Key="SystemAccentColor">#7C5CFF</Color>
+      <SolidColorBrush x:Key="AccentBrush" Color="#7C5CFF" />
+      <SolidColorBrush x:Key="AccentSoftBrush" Color="#337C5CFF" />
+      <SolidColorBrush x:Key="AccentForegroundBrush" Color="White" />
+      <CornerRadius x:Key="TileCornerRadius">8</CornerRadius>
+      <CornerRadius x:Key="CardCornerRadius">10</CornerRadius>
+      <x:Double x:Key="AppFontSize">14</x:Double>
+      <x:Double x:Key="AppFontSizeSmall">12</x:Double>
+      <x:Double x:Key="AppFontSizeLarge">20</x:Double>
+      <FontFamily x:Key="AppFontFamily">Segoe UI Variable Text, Segoe UI, Inter</FontFamily>
+      <x:Double x:Key="CoverWidth">160</x:Double>
+      <x:Double x:Key="CoverHeight">240</x:Double>
+      <x:Double x:Key="IconTileWidth">132</x:Double>
+      <x:Double x:Key="IconSize">96</x:Double>
+      <Thickness x:Key="TileMargin">0,0,14,14</Thickness>
+      <x:Boolean x:Key="ShowTitles">True</x:Boolean>
+      <x:Boolean x:Key="ShowBadges">True</x:Boolean>
+      <x:Boolean x:Key="ShowTilePlaytime">False</x:Boolean>
+      <x:Boolean x:Key="ShowTileSize">True</x:Boolean>
+      <x:Boolean x:Key="ShowSidebarText">True</x:Boolean>
+      <x:Boolean x:Key="ShowSidebarCounts">True</x:Boolean>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Playnest/Themes/Styles.axaml" />
+  </Application.Styles>
+</Application>

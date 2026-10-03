@@ -1,0 +1,472 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Playnest.ViewModels"
+             x:Class="Playnest.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="StackPanel.group > Border.card">
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+    <Style Selector="ComboBox, Slider">
+      <Setter Property="MinWidth" Value="220" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="28,18,28,40" MaxWidth="900" HorizontalAlignment="Left" Spacing="6">
+      <TextBlock Text="Settings" Classes="h1" />
+      <TextBlock Text="Changes apply right away and are saved automatically." Classes="subtle small" Margin="0,0,0,10" />
+
+      <!-- ============================== Appearance ============================== -->
+      <TextBlock Text="Appearance" Classes="h2" Margin="0,12,0,6" />
+      <Border Classes="card">
+        <StackPanel>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Theme" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}" SelectedIndex="{Binding ThemeIndex}" />
+          </Grid>
+          <Separator Classes="thin" />
+          <StackPanel Margin="0,8">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="Accent colour" />
+                <TextBlock Text="Used for buttons, selection and highlights. Pick a preset or type a hex colour." Classes="subtle small" TextWrapping="Wrap" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Width="28" Height="28" CornerRadius="14" Background="{Binding AccentPreview}" />
+                <TextBox Text="{Binding AccentColor}" Width="110" />
+              </StackPanel>
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Swatches}" Margin="0,10,0,0">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AccentSwatch">
+                  <Button Classes="swatch" Background="{Binding Brush}" Command="{Binding PickCommand}" ToolTip.Tip="{Binding Hex}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+          <Separator Classes="thin" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Window background" />
+              <TextBlock Text="Mica and Acrylic use Windows' translucent materials. A custom image sits behind everything." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding BackdropOptions}" SelectedIndex="{Binding BackdropIndex}" />
+          </Grid>
+          <StackPanel IsVisible="{Binding IsImageBackdrop}" Margin="0,0,0,8" Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding BackgroundImage}" Watermark="Image file" />
+              <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding BrowseBackgroundCommand}" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*">
+              <TextBlock Text="Image strength" VerticalAlignment="Center" Margin="0,0,12,0" Classes="subtle" />
+              <Slider Grid.Column="1" Minimum="0.05" Maximum="1" Value="{Binding BackgroundImageOpacity}" />
+            </Grid>
+          </StackPanel>
+          <Separator Classes="thin" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Corner roundness" />
+              <TextBlock Text="{Binding CornerRadius, StringFormat='{}{0:0} px'}" Classes="subtle small" />
+            </StackPanel>
+            <Slider Grid.Column="1" Minimum="0" Maximum="20" Value="{Binding CornerRadius}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Text size" />
+              <TextBlock Text="{Binding FontSize, StringFormat='{}{0:0} pt'}" Classes="subtle small" />
+            </StackPanel>
+            <Slider Grid.Column="1" Minimum="12" Maximum="18" Value="{Binding FontSize}" TickFrequency="1" IsSnapToTickEnabled="True" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Font" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Fonts}" SelectedIndex="{Binding FontIndex}" MaxDropDownHeight="360" />
+          </Grid>
+          <Separator Classes="thin" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Compact sidebar" />
+              <TextBlock Text="Show only icons in the sidebar." Classes="subtle small" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding CompactSidebar}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Show game counts in the sidebar" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowSidebarCounts}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- ============================== Library ============================== -->
+      <TextBlock Text="Library" Classes="h2" Margin="0,18,0,6" />
+      <Border Classes="card">
+        <StackPanel>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Default view" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding ViewModeOptions}" SelectedIndex="{Binding ViewModeIndex}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Cover size" />
+              <TextBlock Text="{Binding CoverWidth, StringFormat='{}{0:0} px wide'}" Classes="subtle small" />
+            </StackPanel>
+            <Slider Grid.Column="1" Minimum="110" Maximum="300" Value="{Binding CoverWidth}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Icon size" />
+              <TextBlock Text="{Binding IconSize, StringFormat='{}{0:0} px'}" Classes="subtle small" />
+            </StackPanel>
+            <Slider Grid.Column="1" Minimum="48" Maximum="192" Value="{Binding IconSize}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Spacing between tiles" />
+              <TextBlock Text="{Binding TileSpacing, StringFormat='{}{0:0} px'}" Classes="subtle small" />
+            </StackPanel>
+            <Slider Grid.Column="1" Minimum="4" Maximum="40" Value="{Binding TileSpacing}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Sort by" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding SortOptions}" SelectedIndex="{Binding SortIndex}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Double-click a game to" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding DoubleClickOptions}" SelectedIndex="{Binding DoubleClickIndex}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Show quick play button" />
+              <TextBlock Text="A small play button in the corner of each game. It also shows on the selected game." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding QuickPlayOptions}" SelectedIndex="{Binding QuickPlayIndex}" />
+          </Grid>
+          <Separator Classes="thin" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Show game names under tiles" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowTitles}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Show store badges on tiles" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowSourceBadges}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Show playtime on covers" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowPlaytimeOnTiles}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Show game sizes on tiles" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowSizeOnTiles}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Calculate game sizes" />
+              <TextBlock Text="Steam and Epic sizes are read instantly; other games are measured slowly in the background." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding CalculateSizes}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Details panel" />
+              <TextBlock Text="Show a panel with artwork, stats and actions when a game is selected." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowDetailsPanel}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Show “Continue playing” row" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowRecentRow}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Favourites first" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding FavoritesFirst}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Hover effects on tiles" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding HoverEffects}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- ============================== Behaviour ============================== -->
+      <TextBlock Text="Behaviour" Classes="h2" Margin="0,18,0,6" />
+      <Border Classes="card">
+        <StackPanel>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="When a game starts" />
+              <TextBlock Text="Hiding to the tray uses the least memory while you play." Classes="subtle small" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding LaunchOptions}" SelectedIndex="{Binding LaunchBehaviorIndex}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Bring Playnest back when the game closes" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding RestoreAfterGameExit}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Free memory while gaming" />
+              <TextBlock Text="Unloads artwork and trims RAM while Playnest is hidden." Classes="subtle small" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding FreeMemoryWhileGaming}" />
+          </Grid>
+          <Separator Classes="thin" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Closing the window keeps Playnest in the tray" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding CloseToTray}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Start with Windows" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartWithWindows}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Start hidden in the tray" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartMinimized}" />
+          </Grid>
+          <Separator Classes="thin" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Track playtime" />
+              <TextBlock Text="Counts how long each game runs." Classes="subtle small" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding TrackPlaytime}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Also track games started outside Playnest" />
+              <TextBlock Text="Counts playtime when you start a game from Steam, a desktop shortcut or its own launcher. Checks running programs every 30 seconds." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding TrackExternalPlaytime}" IsEnabled="{Binding TrackPlaytime}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Import playtime from Steam" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ImportSteamPlaytime}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- ============================== Scanning ============================== -->
+      <TextBlock Text="Scanning" Classes="h2" Margin="0,18,0,6" />
+      <Border Classes="card">
+        <StackPanel>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Scan when Playnest starts" />
+              <TextBlock Text="Runs quietly in the background a moment after start-up." Classes="subtle small" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ScanOnStartup}" />
+          </Grid>
+          <Separator Classes="thin" />
+          <TextBlock Text="Stores" Margin="0,8,0,4" />
+          <TextBlock Text="Each store is read from its own install records, so only real games are added." Classes="subtle small" TextWrapping="Wrap" />
+          <WrapPanel Margin="0,8,0,4">
+            <CheckBox Content="Steam" IsChecked="{Binding ScanSteam}" MinWidth="170" />
+            <CheckBox Content="Epic Games" IsChecked="{Binding ScanEpic}" MinWidth="170" />
+            <CheckBox Content="GOG" IsChecked="{Binding ScanGog}" MinWidth="170" />
+            <CheckBox Content="EA app" IsChecked="{Binding ScanEA}" MinWidth="170" />
+            <CheckBox Content="Ubisoft Connect" IsChecked="{Binding ScanUbisoft}" MinWidth="170" />
+            <CheckBox Content="Battle.net" IsChecked="{Binding ScanBattleNet}" MinWidth="170" />
+            <CheckBox Content="Xbox / Game Pass" IsChecked="{Binding ScanXbox}" MinWidth="170" />
+            <CheckBox Content="Rockstar" IsChecked="{Binding ScanRockstar}" MinWidth="170" />
+            <CheckBox Content="Riot" IsChecked="{Binding ScanRiot}" MinWidth="170" />
+            <CheckBox Content="Amazon Games" IsChecked="{Binding ScanAmazon}" MinWidth="170" />
+          </WrapPanel>
+          <Separator Classes="thin" />
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Look through installed programs" />
+              <TextBlock Text="Finds games installed outside the stores. Each one is checked for game engine files, so apps are skipped." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ScanInstalledPrograms}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Detect store launchers" />
+              <TextBlock Text="Steam, Epic, GOG Galaxy, EA app, Ubisoft Connect, Battle.net, Xbox app and more." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding DetectLaunchers}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Detect gaming tools" />
+              <TextBlock Text="Mod managers, emulators and performance tools like MSI Afterburner." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding DetectTools}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Add Steam software as tools" />
+              <TextBlock Text="Steam apps that aren't games (e.g. Lossless Scaling) are skipped unless this is on." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IncludeSteamSoftwareAsTools}" />
+          </Grid>
+          <Separator Classes="thin" />
+
+          <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,4">
+            <StackPanel>
+              <TextBlock Text="Game folders" />
+              <TextBlock Text="Folders that contain games, one game per sub folder (e.g. D:\Games)." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Add folder…" Command="{Binding AddGameFolderCommand}" VerticalAlignment="Center" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Also check a “Games” folder on every drive" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoDetectGameFolders}" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding GameFolders}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:FolderItemViewModel">
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+                  <TextBlock Classes="glyph" Text="&#xE8B7;" FontSize="13" Margin="0,0,10,0" />
+                  <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <Button Grid.Column="2" Classes="flat" Padding="6" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove">
+                    <TextBlock Classes="glyph" Text="&#xE711;" FontSize="11" />
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,4">
+            <StackPanel>
+              <TextBlock Text="Never scan these folders" />
+              <TextBlock Text="Useful for backups or work folders that contain game-like files." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Add folder…" Command="{Binding AddExcludedFolderCommand}" VerticalAlignment="Center" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding ExcludedFolders}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:FolderItemViewModel">
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+                  <TextBlock Classes="glyph" Text="&#xE8B7;" FontSize="13" Margin="0,0,10,0" />
+                  <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <Button Grid.Column="2" Classes="flat" Padding="6" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove">
+                    <TextBlock Classes="glyph" Text="&#xE711;" FontSize="11" />
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <StackPanel Margin="0,14,0,4" Spacing="6">
+            <TextBlock Text="Extra words that mean “not a game”" />
+            <TextBlock Text="Anything whose name contains one of these is skipped. Separate with commas." Classes="subtle small" />
+            <TextBox Text="{Binding ExcludeKeywords}" Watermark="e.g. benchmark, demo, test build" />
+          </StackPanel>
+
+          <Separator Classes="thin" />
+          <TextBlock Text="Removed items" Margin="0,8,0,2" />
+          <TextBlock Text="Things you removed from the library. Scans won't add them back until you restore them." Classes="subtle small" TextWrapping="Wrap" />
+          <TextBlock Text="Nothing removed." Classes="subtle small" Margin="0,6" IsVisible="{Binding !HasIgnored}" />
+          <ItemsControl ItemsSource="{Binding Ignored}" Margin="0,6,0,0">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:IgnoredItemViewModel">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Name}" />
+                    <TextBlock Text="{Binding Detail}" Classes="subtle small" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Content="Restore" Command="{Binding RestoreCommand}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <Button Content="Scan now" Classes="accent" Margin="0,14,0,4" Command="{Binding ScanNowCommand}" />
+        </StackPanel>
+      </Border>
+
+      <!-- ============================== Artwork ============================== -->
+      <TextBlock Text="Artwork" Classes="h2" Margin="0,18,0,6" />
+      <Border Classes="card">
+        <StackPanel>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Download missing artwork" />
+              <TextBlock Text="Uses Steam's official covers (no account needed). Local store images and exe icons are always used first." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding DownloadArtwork}" />
+          </Grid>
+          <StackPanel Margin="0,8" Spacing="6">
+            <TextBlock Text="SteamGridDB API key (optional)" />
+            <TextBlock Text="Adds high-resolution covers, icons and backgrounds for games that aren't on Steam. The key is free." Classes="subtle small" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,Auto,Auto">
+              <TextBox Text="{Binding SteamGridDbApiKey}" PasswordChar="•" Watermark="Paste your key" />
+              <Button Grid.Column="1" Content="Test" Margin="8,0,0,0" Command="{Binding TestKeyCommand}" />
+              <Button Grid.Column="2" Content="Get a key" Margin="8,0,0,0" Command="{Binding GetKeyCommand}" />
+            </Grid>
+            <TextBlock Text="{Binding KeyStatus}" Classes="subtle small" />
+          </StackPanel>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Image quality" />
+              <TextBlock Text="Images are decoded at the size they're shown. Higher quality looks sharper on high-DPI screens but uses more memory." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding QualityOptions}" SelectedIndex="{Binding ImageQualityIndex}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Artwork cache" />
+              <TextBlock Text="{Binding CacheSizeText}" Classes="subtle small" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Clear cache" Command="{Binding ClearArtworkCacheCommand}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- ============================== Performance ============================== -->
+      <TextBlock Text="Performance" Classes="h2" Margin="0,18,0,6" />
+      <Border Classes="card">
+        <StackPanel>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Low-memory mode" />
+              <TextBlock Text="Smaller images, no translucency, no animations. Best for older PCs." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding LowMemoryMode}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="Animations" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding Animations}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="GPU rendering" />
+              <TextBlock Text="Turn off if you see glitches. Takes effect after restarting Playnest." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding GpuRendering}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding MemoryText}" Classes="subtle small" VerticalAlignment="Center" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Content="Free memory now" Command="{Binding FreeMemoryNowCommand}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- ============================== About ============================== -->
+      <TextBlock Text="About &amp; data" Classes="h2" Margin="0,18,0,6" />
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding VersionText}" FontWeight="SemiBold" />
+          <StackPanel>
+            <TextBlock Text="Data folder" Classes="subtle small" />
+            <SelectableTextBlock Text="{Binding DataFolder}" />
+          </StackPanel>
+          <WrapPanel>
+            <Button Content="Open data folder" Command="{Binding OpenDataFolderCommand}" Margin="0,0,8,8" />
+            <Button Content="Export settings…" Command="{Binding ExportSettingsCommand}" Margin="0,0,8,8" />
+            <Button Content="Import settings…" Command="{Binding ImportSettingsCommand}" Margin="0,0,8,8" />
+            <Button Content="Reset settings…" Classes="danger" Command="{Binding ResetSettingsCommand}" Margin="0,0,8,8" />
+          </WrapPanel>
+          <TextBlock Classes="subtle small" TextWrapping="Wrap"
+                     Text="Tip: put an empty file called portable.txt next to Playnest.exe to keep all data beside the exe (e.g. on a USB drive)." />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,119 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Playnest.ViewModels"
+             x:Class="Playnest.Views.LaunchersView"
+             x:DataType="vm:MainViewModel"
+             Classes="hover">
+
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="28,18,28,28" Spacing="8">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="Launchers &amp; tools" Classes="h1" />
+          <TextBlock Text="Store apps and gaming tools found on this PC. Plain apps are never added." Classes="subtle small" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Classes="tool" Command="{Binding ScanCommand}" IsEnabled="{Binding !IsScanning}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="glyph" Text="&#xE72C;" FontSize="13" />
+              <TextBlock Text="Scan" />
+            </StackPanel>
+          </Button>
+          <Button Classes="tool accent" Command="{Binding AddToolCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="glyph" Text="&#xE710;" FontSize="13" />
+              <TextBlock Text="Add tool or launcher" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+
+      <!-- Store launchers -->
+      <TextBlock Text="Store launchers" Classes="h2" Margin="0,18,0,4" />
+      <TextBlock Text="No store launchers found. Turn on detection in Settings → Scanning, or add one manually." Classes="subtle"
+                 IsVisible="{Binding !HasLaunchers}" />
+      <ItemsControl ItemsSource="{Binding Launchers}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:GameViewModel">
+            <Button Classes="tile" Width="250" Margin="0,0,12,12" Command="{Binding PlayCommand}" ToolTip.Tip="Open">
+              <Button.ContextFlyout>
+                <MenuFlyout>
+                  <MenuItem Header="Open" Command="{Binding PlayCommand}" />
+                  <MenuItem Header="Open install folder" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}" />
+                  <Separator />
+                  <MenuItem Header="Edit…" Command="{Binding EditCommand}" />
+                  <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
+                  <Separator />
+                  <MenuItem Header="Uninstall…" Command="{Binding UninstallCommand}" IsEnabled="{Binding CanUninstall}" />
+                  <MenuItem Header="Remove from Playnest" Command="{Binding RemoveCommand}" />
+                </MenuFlyout>
+              </Button.ContextFlyout>
+              <Border Classes="card art" Padding="14">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <Panel Width="48" Height="48">
+                    <Border CornerRadius="10" Background="{Binding Placeholder}" IsVisible="{Binding ShowIconInitials}">
+                      <TextBlock Text="{Binding Initials}" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Image Source="{Binding Icon}" Stretch="Uniform" />
+                  </Panel>
+                  <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Subtitle}" Classes="subtle small" />
+                  </StackPanel>
+                  <Button Grid.Column="2" Classes="flat" Padding="6" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}"
+                          ToolTip.Tip="Open folder" VerticalAlignment="Center">
+                    <TextBlock Classes="glyph" Text="&#xE8B7;" FontSize="13" />
+                  </Button>
+                </Grid>
+              </Border>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Tools -->
+      <TextBlock Text="Gaming tools" Classes="h2" Margin="0,18,0,4" />
+      <TextBlock Text="Mod managers, emulators and performance tools appear here." Classes="subtle" IsVisible="{Binding !HasTools}" />
+      <ItemsControl ItemsSource="{Binding Tools}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:GameViewModel">
+            <Button Classes="tile" Width="120" Margin="0,0,12,12" Command="{Binding PlayCommand}"
+                    ToolTip.Tip="{Binding Name}">
+              <Button.ContextFlyout>
+                <MenuFlyout>
+                  <MenuItem Header="Open" Command="{Binding PlayCommand}" />
+                  <MenuItem Header="Open install folder" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}" />
+                  <Separator />
+                  <MenuItem Header="Edit…" Command="{Binding EditCommand}" />
+                  <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
+                  <Separator />
+                  <MenuItem Header="Uninstall…" Command="{Binding UninstallCommand}" IsEnabled="{Binding CanUninstall}" />
+                  <MenuItem Header="Remove from Playnest" Command="{Binding RemoveCommand}" />
+                </MenuFlyout>
+              </Button.ContextFlyout>
+              <StackPanel Spacing="6">
+                <Border Classes="card art" Height="96" Padding="0">
+                  <Panel Width="56" Height="56">
+                    <Border CornerRadius="10" Background="{Binding Placeholder}" IsVisible="{Binding ShowIconInitials}">
+                      <TextBlock Text="{Binding Initials}" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Image Source="{Binding Icon}" Stretch="Uniform" />
+                  </Panel>
+                </Border>
+                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                           FontSize="{DynamicResource AppFontSizeSmall}" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

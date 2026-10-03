@@ -1,0 +1,443 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Playnest.ViewModels"
+             x:Class="Playnest.Views.LibraryView"
+             x:DataType="vm:MainViewModel"
+             Classes="hover">
+
+  <DockPanel>
+    <!-- ============================== Toolbar ============================== -->
+    <StackPanel DockPanel.Dock="Top" Margin="28,16,24,10" Spacing="12">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="{Binding FilterTitle}" Classes="h1" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="{Binding CountText}" Classes="subtle small" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="tool" Command="{Binding ScanCommand}" IsEnabled="{Binding !IsScanning}" ToolTip.Tip="Scan for games (F5)">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Classes="glyph" Text="&#xE72C;" FontSize="13" />
+                <TextBlock Text="Scan" />
+              </StackPanel>
+            </Button>
+            <DropDownButton Classes="tool accent">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Classes="glyph" Text="&#xE710;" FontSize="13" />
+                <TextBlock Text="Add" />
+              </StackPanel>
+              <DropDownButton.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                  <MenuItem Header="Add a game (exe or shortcut)…" Command="{Binding AddGameCommand}" />
+                  <MenuItem Header="Add a folder of games…" Command="{Binding AddGameFolderCommand}" />
+                  <MenuItem Header="Add a gaming tool…" Command="{Binding AddToolCommand}" />
+                </MenuFlyout>
+              </DropDownButton.Flyout>
+            </DropDownButton>
+        </StackPanel>
+      </Grid>
+
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" MaxWidth="380" />
+          <ColumnDefinition Width="0.01*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBox Name="SearchBox" Text="{Binding SearchText}" Watermark="Search  (Ctrl+F)" MinWidth="140"
+                 VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,12,0">
+          <TextBox.InnerLeftContent>
+            <TextBlock Classes="glyph" Text="&#xE721;" FontSize="13" Margin="10,0,0,0" Opacity="0.7" />
+          </TextBox.InnerLeftContent>
+        </TextBox>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <!-- quick size slider -->
+            <Slider Width="110" Minimum="110" Maximum="300" Value="{Binding SettingsPage.CoverWidth}" IsVisible="{Binding IsCoverView}"
+                    VerticalAlignment="Center" ToolTip.Tip="Cover size" />
+            <Slider Width="110" Minimum="48" Maximum="192" Value="{Binding SettingsPage.IconSize}" IsVisible="{Binding IsIconView}"
+                    VerticalAlignment="Center" ToolTip.Tip="Icon size" />
+            <Border Classes="card" Padding="2" CornerRadius="8">
+              <StackPanel Orientation="Horizontal">
+                <Button Classes="seg" Classes.active="{Binding IsCoverView}" Command="{Binding SetViewCommand}" CommandParameter="Covers" ToolTip.Tip="Cover grid">
+                  <TextBlock Classes="glyph" Text="&#xE8A9;" FontSize="14" />
+                </Button>
+                <Button Classes="seg" Classes.active="{Binding IsIconView}" Command="{Binding SetViewCommand}" CommandParameter="Icons" ToolTip.Tip="Icon grid">
+                  <TextBlock Classes="glyph" Text="&#xF0E2;" FontSize="14" />
+                </Button>
+                <Button Classes="seg" Classes.active="{Binding IsListView}" Command="{Binding SetViewCommand}" CommandParameter="List" ToolTip.Tip="List">
+                  <TextBlock Classes="glyph" Text="&#xE8FD;" FontSize="14" />
+                </Button>
+              </StackPanel>
+            </Border>
+            <DropDownButton Classes="tool" ToolTip.Tip="Sort">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Classes="glyph" Text="&#xE8CB;" FontSize="13" />
+                <TextBlock Text="{Binding SortLabel}" />
+              </StackPanel>
+              <DropDownButton.Flyout>
+                <MenuFlyout>
+                  <MenuItem Header="Name" Command="{Binding SetSortCommand}" CommandParameter="Name" />
+                  <MenuItem Header="Last played" Command="{Binding SetSortCommand}" CommandParameter="LastPlayed" />
+                  <MenuItem Header="Playtime" Command="{Binding SetSortCommand}" CommandParameter="Playtime" />
+                  <MenuItem Header="Recently added" Command="{Binding SetSortCommand}" CommandParameter="RecentlyAdded" />
+                  <MenuItem Header="Store" Command="{Binding SetSortCommand}" CommandParameter="Source" />
+              <MenuItem Header="Size" Command="{Binding SetSortCommand}" CommandParameter="Size" />
+                </MenuFlyout>
+              </DropDownButton.Flyout>
+            </DropDownButton>
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+
+    <!-- ============================== Content ============================== -->
+    <Panel>
+      <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled" Padding="28,4,14,24">
+        <StackPanel>
+          <!-- Continue playing -->
+          <StackPanel IsVisible="{Binding ShowRecent}" Margin="0,0,0,18">
+            <TextBlock Text="Continue playing" Classes="h2" Margin="0,0,0,10" />
+            <ItemsControl ItemsSource="{Binding RecentGames}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="12" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:GameViewModel">
+                  <Button Classes="tile" Classes.selected="{Binding IsSelected}" Command="{Binding SelectCommand}" Width="250">
+                    <Button.ContextFlyout>
+                      <MenuFlyout>
+                        <MenuItem Header="Play" Command="{Binding PlayCommand}">
+                          <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE768;" /></MenuItem.Icon>
+                          </MenuItem>
+                          <MenuItem Header="Open install folder" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}">
+                            <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B7;" /></MenuItem.Icon>
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="{Binding FavoriteMenuText}" Command="{Binding ToggleFavoriteCommand}">
+                              <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE734;" /></MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Edit…" Command="{Binding EditCommand}">
+                                <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE70F;" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Artwork">
+                                  <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B9;" /></MenuItem.Icon>
+                                    <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
+                                    <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
+                                    <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                    <Separator />
+                                    <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
+                                  </MenuItem>
+                                  <Separator />
+                                  <MenuItem Header="Uninstall…" Command="{Binding UninstallCommand}" IsEnabled="{Binding CanUninstall}">
+                                    <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE74D;" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Remove from library" Command="{Binding RemoveCommand}">
+                                      <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE738;" /></MenuItem.Icon>
+                                      </MenuItem>
+                      </MenuFlyout>
+                    </Button.ContextFlyout>
+                    <Border Classes="art" Height="84" Background="{Binding Placeholder}">
+                      <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Image Grid.ColumnSpan="3" Source="{Binding Cover}" Stretch="UniformToFill" Opacity="0.45" />
+                        <Border Grid.ColumnSpan="3" Background="{DynamicResource TileShadeBrush}" Opacity="0.5" />
+                        <Panel Grid.Column="0" Width="52" Height="52" Margin="14,0,10,0">
+                          <Image Source="{Binding Icon}" Stretch="Uniform" />
+                          <TextBlock Text="{Binding Initials}" IsVisible="{Binding ShowIconInitials}" FontWeight="Bold" FontSize="18"
+                                     Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Panel>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="White" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding LastPlayedText}" Foreground="#DDFFFFFF" FontSize="12" />
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{Binding PlaytimeText}" Foreground="#AAFFFFFF" FontSize="12" />
+                            <TextBlock Text="·" Foreground="#AAFFFFFF" FontSize="12" IsVisible="{Binding HasSize}" />
+                            <TextBlock Text="{Binding SizeText}" Foreground="#AAFFFFFF" FontSize="12" IsVisible="{Binding HasSize}" />
+                          </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="2" Classes="quickplay" Command="{Binding PlayCommand}" IsVisible="{Binding !IsRunning}" ToolTip.Tip="Play"
+                                Width="34" Height="34" CornerRadius="17" Margin="0,0,12,0" VerticalAlignment="Center">
+                          <TextBlock Classes="glyph" Text="&#xE768;" FontSize="12" />
+                        </Button>
+                      </Grid>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="All games" Classes="h2" Margin="0,22,0,0" />
+          </StackPanel>
+
+          <!-- Cover grid -->
+          <ItemsControl Name="CoverRows" ItemsSource="{Binding Rows}" IsVisible="{Binding IsCoverView}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameRow">
+                <ItemsControl ItemsSource="{Binding Items}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GameViewModel">
+                      <Button Classes="tile" Classes.selected="{Binding IsSelected}" Command="{Binding SelectCommand}"
+                              Width="{DynamicResource CoverWidth}" Margin="{DynamicResource TileMargin}" ToolTip.Tip="{Binding Name}">
+                        <Button.ContextFlyout>
+                          <MenuFlyout>
+                            <MenuItem Header="Play" Command="{Binding PlayCommand}">
+                              <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE768;" /></MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Open install folder" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}">
+                                <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B7;" /></MenuItem.Icon>
+                                </MenuItem>
+                                <Separator />
+                                <MenuItem Header="{Binding FavoriteMenuText}" Command="{Binding ToggleFavoriteCommand}">
+                                  <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE734;" /></MenuItem.Icon>
+                                  </MenuItem>
+                                  <MenuItem Header="Edit…" Command="{Binding EditCommand}">
+                                    <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE70F;" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Artwork">
+                                      <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B9;" /></MenuItem.Icon>
+                                        <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
+                                        <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
+                                        <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                        <Separator />
+                                        <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
+                                      </MenuItem>
+                                      <Separator />
+                                      <MenuItem Header="Uninstall…" Command="{Binding UninstallCommand}" IsEnabled="{Binding CanUninstall}">
+                                        <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE74D;" /></MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Remove from library" Command="{Binding RemoveCommand}">
+                                          <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE738;" /></MenuItem.Icon>
+                                          </MenuItem>
+                          </MenuFlyout>
+                        </Button.ContextFlyout>
+                        <StackPanel Spacing="7">
+                          <Border Classes="art" Height="{DynamicResource CoverHeight}" Background="{Binding Placeholder}">
+                            <Panel>
+                              <Image Source="{Binding CoverFallbackIcon}" Width="72" Height="72" Stretch="Uniform"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                              <TextBlock Text="{Binding Initials}" IsVisible="{Binding ShowInitials}" FontSize="34" FontWeight="Bold"
+                                         Foreground="#E6FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                              <TextBlock Text="{Binding Name}" IsVisible="{Binding ShowCoverPlaceholder}" Foreground="#E6FFFFFF"
+                                         FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" MaxLines="3"
+                                         VerticalAlignment="Bottom" Margin="10,0,10,16" />
+                              <Image Source="{Binding Cover}" Stretch="UniformToFill" IsVisible="{Binding CoverFits}" />
+                              <Panel IsVisible="{Binding CoverLetterboxed}">
+                                <Image Source="{Binding Cover}" Stretch="UniformToFill" Opacity="0.3" />
+                                <Image Source="{Binding Cover}" Stretch="Uniform" />
+                              </Panel>
+
+                              <Border Classes="badge" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{DynamicResource ShowBadges}">
+                                <TextBlock Text="{Binding SourceLabel}" />
+                              </Border>
+                              <Border Classes="badge" HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="{Binding IsFavorite}">
+                                <TextBlock Classes="glyph" Text="&#xE735;" FontSize="11" Foreground="Gold" />
+                              </Border>
+                              <Border Classes="badge" HorizontalAlignment="Left" VerticalAlignment="Bottom" IsVisible="{Binding IsRunning}"
+                                      Background="{DynamicResource AccentBrush}">
+                                <TextBlock Text="Running" />
+                              </Border>
+                              <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                                <Border Classes="badge" Margin="6,0,6,4" HorizontalAlignment="Right" IsVisible="{DynamicResource ShowTilePlaytime}">
+                                  <TextBlock Text="{Binding PlaytimeText}" />
+                                </Border>
+                              </StackPanel>
+                              <Button Classes="quickplay" Command="{Binding PlayCommand}" IsVisible="{Binding !IsRunning}" ToolTip.Tip="Play"
+                                      Width="36" Height="36" CornerRadius="18" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                                <TextBlock Classes="glyph" Text="&#xE768;" FontSize="13" />
+                              </Button>
+                            </Panel>
+                          </Border>
+                          <StackPanel Spacing="1" Margin="2,0">
+                            <TextBlock Text="{Binding Name}" IsVisible="{DynamicResource ShowTitles}" TextTrimming="CharacterEllipsis" MaxLines="1" />
+                            <Panel IsVisible="{DynamicResource ShowTileSize}">
+                              <TextBlock Text="{Binding SizeText}" IsVisible="{Binding HasSize}" Classes="subtle small" />
+                            </Panel>
+                          </StackPanel>
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- Icon grid -->
+          <ItemsControl Name="IconRows" ItemsSource="{Binding Rows}" IsVisible="{Binding IsIconView}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameRow">
+                <ItemsControl ItemsSource="{Binding Items}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GameViewModel">
+                      <Button Classes="tile" Classes.selected="{Binding IsSelected}" Command="{Binding SelectCommand}"
+                              Width="{DynamicResource IconTileWidth}" Margin="{DynamicResource TileMargin}" ToolTip.Tip="{Binding Name}">
+                        <Button.ContextFlyout>
+                          <MenuFlyout>
+                            <MenuItem Header="Play" Command="{Binding PlayCommand}">
+                              <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE768;" /></MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Open install folder" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}">
+                                <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B7;" /></MenuItem.Icon>
+                                </MenuItem>
+                                <Separator />
+                                <MenuItem Header="{Binding FavoriteMenuText}" Command="{Binding ToggleFavoriteCommand}">
+                                  <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE734;" /></MenuItem.Icon>
+                                  </MenuItem>
+                                  <MenuItem Header="Edit…" Command="{Binding EditCommand}">
+                                    <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE70F;" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Artwork">
+                                      <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B9;" /></MenuItem.Icon>
+                                        <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
+                                        <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
+                                        <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                        <Separator />
+                                        <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
+                                      </MenuItem>
+                                      <Separator />
+                                      <MenuItem Header="Uninstall…" Command="{Binding UninstallCommand}" IsEnabled="{Binding CanUninstall}">
+                                        <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE74D;" /></MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Remove from library" Command="{Binding RemoveCommand}">
+                                          <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE738;" /></MenuItem.Icon>
+                                          </MenuItem>
+                          </MenuFlyout>
+                        </Button.ContextFlyout>
+                        <StackPanel Spacing="6">
+                          <Border Classes="art" Height="{DynamicResource IconTileWidth}" Background="{DynamicResource CardBrush}">
+                            <Panel>
+                              <Border Width="{DynamicResource IconSize}" Height="{DynamicResource IconSize}" CornerRadius="12"
+                                      Background="{Binding Placeholder}" IsVisible="{Binding ShowIconInitials}">
+                                <TextBlock Text="{Binding Initials}" FontSize="26" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                              </Border>
+                              <Image Source="{Binding Icon}" Width="{DynamicResource IconSize}" Height="{DynamicResource IconSize}" Stretch="Uniform" />
+                              <Border Classes="badge" HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="{Binding IsFavorite}">
+                                <TextBlock Classes="glyph" Text="&#xE735;" FontSize="10" Foreground="Gold" />
+                              </Border>
+                              <Border Classes="badge" HorizontalAlignment="Left" VerticalAlignment="Bottom" IsVisible="{Binding IsRunning}"
+                                      Background="{DynamicResource AccentBrush}">
+                                <TextBlock Text="Running" />
+                              </Border>
+                              <Button Classes="quickplay" Command="{Binding PlayCommand}" IsVisible="{Binding !IsRunning}" ToolTip.Tip="Play"
+                                      Width="30" Height="30" CornerRadius="15" Margin="6" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                                <TextBlock Classes="glyph" Text="&#xE768;" FontSize="11" />
+                              </Button>
+                            </Panel>
+                          </Border>
+                          <TextBlock Text="{Binding Name}" IsVisible="{DynamicResource ShowTitles}" TextWrapping="Wrap" MaxLines="2"
+                                     TextTrimming="CharacterEllipsis" TextAlignment="Center" FontSize="{DynamicResource AppFontSizeSmall}" />
+                          <TextBlock Text="{Binding SourceLabel}" IsVisible="{DynamicResource ShowBadges}" Classes="subtle"
+                                     FontSize="11" TextAlignment="Center" />
+                          <Panel IsVisible="{DynamicResource ShowTileSize}">
+                            <TextBlock Text="{Binding SizeText}" IsVisible="{Binding HasSize}" Classes="subtle" FontSize="11" TextAlignment="Center" />
+                          </Panel>
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- List -->
+          <StackPanel IsVisible="{Binding IsListView}">
+            <Grid ColumnDefinitions="52,*,150,90,100,140" Margin="10,0,10,6" Opacity="0.7">
+              <TextBlock Grid.Column="1" Text="Name" Classes="small" />
+              <TextBlock Grid.Column="2" Text="Store" Classes="small" />
+              <TextBlock Grid.Column="3" Text="Size" Classes="small" />
+              <TextBlock Grid.Column="4" Text="Playtime" Classes="small" />
+              <TextBlock Grid.Column="5" Text="Last played" Classes="small" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding ListItems}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:GameViewModel">
+                  <Button Classes="row tile" Padding="10,3" Classes.selected="{Binding IsSelected}" Command="{Binding SelectCommand}">
+                    <Button.ContextFlyout>
+                      <MenuFlyout>
+                        <MenuItem Header="Play" Command="{Binding PlayCommand}">
+                          <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE768;" /></MenuItem.Icon>
+                          </MenuItem>
+                          <MenuItem Header="Open install folder" Command="{Binding OpenFolderCommand}" IsEnabled="{Binding HasFolder}">
+                            <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B7;" /></MenuItem.Icon>
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="{Binding FavoriteMenuText}" Command="{Binding ToggleFavoriteCommand}">
+                              <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE734;" /></MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Edit…" Command="{Binding EditCommand}">
+                                <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE70F;" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Artwork">
+                                  <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE8B9;" /></MenuItem.Icon>
+                                    <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
+                                    <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
+                                    <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                    <Separator />
+                                    <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
+                                  </MenuItem>
+                                  <Separator />
+                                  <MenuItem Header="Uninstall…" Command="{Binding UninstallCommand}" IsEnabled="{Binding CanUninstall}">
+                                    <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE74D;" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Remove from library" Command="{Binding RemoveCommand}">
+                                      <MenuItem.Icon><TextBlock Classes="glyph" Text="&#xE738;" /></MenuItem.Icon>
+                                      </MenuItem>
+                      </MenuFlyout>
+                    </Button.ContextFlyout>
+                    <Grid ColumnDefinitions="52,*,150,90,100,140" Height="40">
+                      <Panel Width="36" Height="36" HorizontalAlignment="Left">
+                        <Border CornerRadius="6" Background="{Binding Placeholder}" IsVisible="{Binding ShowIconInitials}">
+                          <TextBlock Text="{Binding Initials}" FontSize="13" FontWeight="Bold" Foreground="White"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <Image Source="{Binding Icon}" Stretch="Uniform" />
+                        <Button Classes="quickplay" Command="{Binding PlayCommand}" IsVisible="{Binding !IsRunning}" ToolTip.Tip="Play"
+                                Width="32" Height="32" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+                          <TextBlock Classes="glyph" Text="&#xE768;" FontSize="11" />
+                        </Button>
+                      </Panel>
+                      <DockPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <Border DockPanel.Dock="Right" Classes="badge" Background="{DynamicResource AccentBrush}" IsVisible="{Binding IsRunning}" Margin="8,0,0,0">
+                          <TextBlock Text="Running" />
+                        </Border>
+                        <TextBlock DockPanel.Dock="Right" Classes="glyph" Text="&#xE735;" FontSize="11" Foreground="Gold" IsVisible="{Binding IsFavorite}" Margin="8,0,0,0" />
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      </DockPanel>
+                      <TextBlock Grid.Column="2" Text="{Binding SourceFull}" Classes="subtle" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="3" Text="{Binding SizeText}" Classes="subtle" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="4" Text="{Binding PlaytimeText}" Classes="subtle" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="5" Text="{Binding LastPlayedText}" Classes="subtle" VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Empty state -->
+      <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14" MaxWidth="420">
+        <TextBlock Classes="glyph" Text="&#xE7FC;" FontSize="48" Opacity="0.5" />
+        <TextBlock Text="{Binding EmptyText}" TextWrapping="Wrap" TextAlignment="Center" Classes="subtle" />
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+          <Button Content="Scan now" Command="{Binding ScanCommand}" Classes="accent" />
+          <Button Content="Add a game…" Command="{Binding AddGameCommand}" />
+          <Button Content="Add a game folder…" Command="{Binding AddGameFolderCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Panel>
+  </DockPanel>
+</UserControl>

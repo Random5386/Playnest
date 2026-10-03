@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Dependency-free tests: compiles Playnest's core (non-UI) sources directly, so no NuGet packages are needed. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\Playnest\Models\**\*.cs" LinkBase="Core\Models" />
+    <Compile Include="..\..\src\Playnest\Services\Scanning\**\*.cs" LinkBase="Core\Scanning" />
+    <Compile Include="..\..\src\Playnest\Services\Platform\**\*.cs" LinkBase="Core\Platform" />
+    <Compile Include="..\..\src\Playnest\Services\Artwork\**\*.cs" LinkBase="Core\Artwork" />
+    <Compile Include="..\..\src\Playnest\Services\Storage.cs" LinkBase="Core" />
+    <Compile Include="..\..\src\Playnest\Services\LibraryService.cs" LinkBase="Core" />
+    <Compile Include="..\..\src\Playnest\Services\LaunchService.cs" LinkBase="Core" />
+    <Compile Include="..\..\src\Playnest\Services\SizeCalculator.cs" LinkBase="Core" />
+    <Compile Include="..\..\src\Playnest\Services\Net\**\*.cs" LinkBase="Core\Net" />
+  </ItemGroup>
+</Project>

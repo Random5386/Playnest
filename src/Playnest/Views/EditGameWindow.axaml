@@ -1,0 +1,110 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Playnest.ViewModels"
+        x:Class="Playnest.Views.EditGameWindow"
+        x:DataType="vm:EditGameViewModel"
+        Title="{Binding Title}"
+        Width="620" SizeToContent="Height" MaxHeight="820" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource DialogBrush}"
+        FontFamily="{DynamicResource AppFontFamily}" FontSize="{DynamicResource AppFontSize}">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Margin" Value="0,0,0,4" />
+      <Setter Property="FontSize" Value="{DynamicResource AppFontSizeSmall}" />
+      <Setter Property="Foreground" Value="{DynamicResource SubtleTextBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource CardBrush}" Padding="24,14">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Name="CancelButton" Content="Cancel" IsCancel="True" MinWidth="90" HorizontalContentAlignment="Center" />
+        <Button Name="SaveButton" Content="Save" Classes="accent" IsDefault="True" MinWidth="90" HorizontalContentAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="24,20,24,16" Spacing="14">
+        <StackPanel Spacing="2">
+          <TextBlock Text="{Binding Title}" Classes="h2" />
+          <TextBlock Classes="subtle small" TextWrapping="Wrap">
+            <Run Text="Source:" /> <Run Text="{Binding SourceText}" /> <Run Text=" · " /> <Run Text="{Binding InstallDir}" />
+          </TextBlock>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,12,200">
+          <StackPanel>
+            <TextBlock Text="Name" Classes="label" />
+            <TextBox Text="{Binding Name}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="Type" Classes="label" />
+            <ComboBox ItemsSource="{Binding Kinds}" SelectedIndex="{Binding KindIndex}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Grid>
+
+        <StackPanel>
+          <TextBlock Text="Program" Classes="label" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding ExePath}" Watermark="C:\Games\MyGame\Game.exe" />
+            <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding BrowseExeCommand}" />
+          </Grid>
+          <TextBlock Classes="subtle small" TextWrapping="Wrap" Margin="0,4,0,0" IsVisible="{Binding IsStoreItem}"
+                     Text="Store games normally start through their store (keeps cloud saves and DRM working). Setting a program here launches it directly instead." />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,12,*">
+          <StackPanel>
+            <TextBlock Text="Launch arguments" Classes="label" />
+            <TextBox Text="{Binding Arguments}" Watermark="-windowed -skipintro" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="Working folder" Classes="label" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding WorkingDir}" Watermark="(program's folder)" />
+              <Button Grid.Column="1" Content="…" Margin="8,0,0,0" Command="{Binding BrowseWorkingDirCommand}" />
+            </Grid>
+          </StackPanel>
+        </Grid>
+
+        <StackPanel>
+          <TextBlock Text="Launch link (optional)" Classes="label" />
+          <TextBox Text="{Binding LaunchUri}" Watermark="steam://rungameid/123  ·  com.epicgames.launcher://…  ·  https://…" />
+        </StackPanel>
+
+        <CheckBox Content="Run as administrator" IsChecked="{Binding RunAsAdmin}" />
+
+        <Separator Classes="thin" />
+        <TextBlock Text="Artwork" FontWeight="SemiBold" />
+        <TextBlock Text="Leave empty to use automatic artwork. Icons can be taken from an .exe or .ico file." Classes="subtle small" TextWrapping="Wrap" />
+
+        <StackPanel>
+          <TextBlock Text="Cover (portrait, e.g. 600×900)" Classes="label" />
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Text="{Binding CoverPath}" Watermark="Automatic" />
+            <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding BrowseCoverCommand}" />
+            <Button Grid.Column="2" Content="Reset" Margin="8,0,0,0" Command="{Binding ClearCoverCommand}" />
+          </Grid>
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Icon (square)" Classes="label" />
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Text="{Binding IconPath}" Watermark="Automatic" />
+            <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding BrowseIconCommand}" />
+            <Button Grid.Column="2" Content="Reset" Margin="8,0,0,0" Command="{Binding ClearIconCommand}" />
+          </Grid>
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Background (wide, e.g. 1920×620)" Classes="label" />
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Text="{Binding HeroPath}" Watermark="Automatic" />
+            <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding BrowseHeroCommand}" />
+            <Button Grid.Column="2" Content="Reset" Margin="8,0,0,0" Command="{Binding ClearHeroCommand}" />
+          </Grid>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>
