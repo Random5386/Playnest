@@ -622,6 +622,47 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         BuildFilters();
     }
 
+    /// <summary>
+    /// Ends a running game's programs right away (after the user confirms the exact list).
+    /// Only programs inside the game's own install folder are touched; see <see cref="GameProcesses"/>.
+    /// </summary>
+    public async Task ForceStop(GameViewModel g)
+    {
+        var e = g.Entry;
+        var dir = e.EffectiveDir;
+        if (!GameProcesses.IsSafeGameFolder(dir))
+        {
+            ShowToast($"Playnest can't safely stop {g.Name}: its install folder isn't specific to this game. Close it from inside the game.", error: true);
+            return;
+        }
+
+        var only = _sessions.NamesOnlyFor(e);
+        var procs = await Task.Run(() => GameProcesses.Find(dir!, only));
+        if (procs.Count == 0)
+        {
+            ShowToast($"{g.Name} isn't running any more.");
+            _sessions.NoteStopped(e);
+            return;
+        }
+
+        var names = procs.Select(p => p.Name + ".exe").Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var list = string.Join("\n", names.Take(8).Select(n => "• " + n)) + (names.Count > 8 ? $"\n• …and {names.Count - 8} more" : "");
+        bool ok = await Ui.Confirm($"Force stop {g.Name}?",
+            $"These programs will be ended straight away. Anything you haven't saved in the game will be lost.\n\n{list}",
+            "Force stop", danger: true);
+        if (!ok) return;
+
+        var (stopped, denied) = await Task.Run(() => GameProcesses.Stop(procs));
+        _sessions.NoteStopped(e);
+        if (denied == 0)
+            ShowToast($"{g.Name} was stopped.");
+        else
+            ShowToast(stopped > 0
+                    ? $"Part of {g.Name} couldn't be stopped. It may be running as administrator or protected by anti-cheat."
+                    : $"Windows didn't let Playnest stop {g.Name}. It may be running as administrator or protected by anti-cheat. Close it from inside the game, or run Playnest as administrator.",
+                error: true);
+    }
+
     public void OpenFolder(GameViewModel g)
     {
         try { LaunchService.OpenFolder(g.Entry); }

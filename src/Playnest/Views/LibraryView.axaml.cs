@@ -49,8 +49,9 @@ public partial class LibraryView : UserControl
     private void OnDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (_vm is null) return;
-        // A double-click on the quick play button is already a launch; don't start the game twice.
-        if (e.Source is Control qp && (qp as Button ?? qp.FindAncestorOfType<Button>())?.Classes.Contains("quickplay") == true)
+        // A double-click on the quick play or force stop button is handled by that button; never launch from it.
+        if (e.Source is Control qp && (qp as Button ?? qp.FindAncestorOfType<Button>()) is { } b
+            && (b.Classes.Contains("quickplay") || b.Classes.Contains("stopgame")))
         {
             e.Handled = true;
             return;

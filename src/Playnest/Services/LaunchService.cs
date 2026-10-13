@@ -239,6 +239,29 @@ public sealed class SessionTracker : IDisposable
         });
     }
 
+    /// <summary>Exe names (without .exe) that identify only this game.</summary>
+    public IReadOnlySet<string> NamesOnlyFor(GameEntry e)
+    {
+        Dictionary<string, List<(GameEntry Game, string Dir)>> index;
+        lock (_gate) index = _index;
+        return index.Where(kv => kv.Value.Count == 1 && kv.Value[0].Game == e)
+                    .Select(kv => kv.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>After a force stop: check again shortly, and end the session on the first check that finds nothing.</summary>
+    public void NoteStopped(GameEntry e)
+    {
+        lock (_gate)
+        {
+            foreach (var s in _sessions.Where(x => x.Game == e)) s.MissedPolls = Math.Max(s.MissedPolls, 1);
+        }
+        Task.Run(async () =>
+        {
+            await Task.Delay(1500).ConfigureAwait(false);
+            Poll();
+        });
+    }
+
     private void Reschedule()
     {
         lock (_gate)
@@ -276,7 +299,7 @@ public sealed class SessionTracker : IDisposable
             foreach (var p in procs)
             {
                 string pname;
-                try { pname = p.ProcessName; } catch { continue; }
+                try { pname = GameProcesses.NormalizeName(p.ProcessName); } catch { continue; }
                 if (!index.TryGetValue(pname, out var candidates)) continue;
                 string? path = null;
                 bool pathRead = false;

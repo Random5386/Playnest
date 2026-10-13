@@ -571,6 +571,54 @@ Section("Network safety (everything that touches the internet)");
     SafeHttp.TestHandler = null;
 }
 
+// ---------------------------------------------------------------------------------------------
+Section("Force stop (only the game's own programs)");
+{
+    var root = Path.Combine(tmpRoot, "stop");
+    var lib = Path.Combine(root, "Games");
+    var game = Path.Combine(lib, "Sleepy Game");
+    var other = Path.Combine(lib, "Other Game");
+    Directory.CreateDirectory(Path.Combine(game, "bin"));
+    Directory.CreateDirectory(other);
+
+    Check(GameProcesses.IsSafeGameFolder(game), "a game's own folder is safe");
+    Check(!GameProcesses.IsSafeGameFolder(lib), "a library folder (\"Games\") is not");
+    Check(!GameProcesses.IsSafeGameFolder(Path.GetPathRoot(game)), "a drive root is not");
+    Check(!GameProcesses.IsSafeGameFolder(Path.Combine(root, "steamapps", "common")), "steamapps\\common is not");
+    Check(!GameProcesses.IsSafeGameFolder(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), "the user's profile folder is not");
+    Check(!GameProcesses.IsSafeGameFolder(Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd('/', '\\'))), "a folder containing Playnest is not");
+    var steamDir = Path.Combine(root, "MySteam");
+    Directory.CreateDirectory(steamDir);
+    File.WriteAllText(Path.Combine(steamDir, "steam.exe"), "");
+    Check(!GameProcesses.IsSafeGameFolder(steamDir), "a store client's folder is not");
+    Check(!GameProcesses.IsSafeGameFolder(null) && !GameProcesses.IsSafeGameFolder(" "), "no folder is not");
+    Eq("game", GameProcesses.NormalizeName("game.exe"), "process name normalised");
+
+    if (OperatingSystem.IsLinux() && File.Exists("/bin/sleep"))
+    {
+        // Real processes: one "game" program inside the game folder, and the same program in another game's folder.
+        var exe = Path.Combine(game, "bin", "sleepy.exe");
+        var otherExe = Path.Combine(other, "sleepy.exe");
+        File.Copy("/bin/sleep", exe, true);
+        File.Copy("/bin/sleep", otherExe, true);
+        File.SetUnixFileMode(exe, (UnixFileMode)0b111_101_101);
+        File.SetUnixFileMode(otherExe, (UnixFileMode)0b111_101_101);
+        using var mine = System.Diagnostics.Process.Start(exe, "60")!;
+        using var theirs = System.Diagnostics.Process.Start(otherExe, "60")!;
+        Thread.Sleep(300);
+        var found = GameProcesses.Find(game, new HashSet<string>());
+        Check(found.Count == 1 && found[0].Id == mine.Id, "finds the program inside the game's folder only", string.Join(", ", found.Select(f => f.Id + " " + f.Path)));
+        Check(GameProcesses.Find(lib, new HashSet<string>()).Count == 0, "nothing is found for an unsafe folder");
+        var stale = found.Select(f => f with { StartTime = f.StartTime?.AddSeconds(-30) }).ToList();
+        GameProcesses.Stop(stale);
+        Check(!mine.HasExited, "a re-used process id (different start time) is not ended");
+        var (stopped, denied) = GameProcesses.Stop(found);
+        Check(stopped == 1 && denied == 0 && mine.WaitForExit(3000), "the game's program is ended");
+        Check(!theirs.HasExited, "the other game's program keeps running");
+        theirs.Kill();
+    }
+}
+
 Console.WriteLine($"\n{passed} passed, {failed} failed");
 try
 {

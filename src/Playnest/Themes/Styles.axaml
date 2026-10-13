@@ -140,7 +140,7 @@
 
   <!-- Quick play: a small corner button, hidden until the pointer is over the game (or the game is selected).
        While hidden it can't be clicked, so it never catches a stray click meant for the tile. -->
-  <Style Selector="Button.quickplay">
+  <Style Selector="Button.quickplay, Button.stopgame">
     <Setter Property="Padding" Value="0" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="BorderBrush" Value="#40000000" />
@@ -154,7 +154,7 @@
     <Setter Property="IsHitTestVisible" Value="False" />
     <Setter Property="RenderTransform" Value="none" />
   </Style>
-  <Style Selector=".qp-always Button.quickplay, .qp-hover Button.tile:pointerover Button.quickplay, .qp-hover Button.tile.selected Button.quickplay">
+  <Style Selector=".qp-always Button.quickplay, .qp-hover Button.tile:pointerover Button.quickplay, .qp-hover Button.tile.selected Button.quickplay, .qp-always Button.stopgame, Button.tile:pointerover Button.stopgame, Button.tile.selected Button.stopgame">
     <Setter Property="Opacity" Value="1" />
     <Setter Property="IsHitTestVisible" Value="True" />
   </Style>
@@ -163,13 +163,23 @@
     <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
     <Setter Property="BorderBrush" Value="#80FFFFFF" />
   </Style>
-  <Style Selector="Button.quickplay:pointerover">
+  <!-- Force stop: same shape as quick play, on the opposite corner, in the danger colour; only on running games. -->
+  <Style Selector="Button.stopgame">
+    <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.stopgame:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.stopgame:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="BorderBrush" Value="#80FFFFFF" />
+  </Style>
+  <Style Selector="Button.quickplay:pointerover, Button.stopgame:pointerover">
     <Setter Property="RenderTransform" Value="scale(1.1)" />
   </Style>
-  <Style Selector="Button.quickplay:pressed">
+  <Style Selector="Button.quickplay:pressed, Button.stopgame:pressed">
     <Setter Property="RenderTransform" Value="scale(0.95)" />
   </Style>
-  <Style Selector="Window:not(.noanim) Button.quickplay">
+  <Style Selector="Window:not(.noanim) Button.quickplay, Window:not(.noanim) Button.stopgame">
     <Setter Property="Transitions">
       <Transitions>
         <DoubleTransition Property="Opacity" Duration="0:0:0.12" />

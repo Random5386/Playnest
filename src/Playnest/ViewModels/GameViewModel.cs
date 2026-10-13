@@ -20,6 +20,7 @@ public interface IGameHost
     int DecodeWidth(ArtKind kind);
     bool IsRunning(GameEntry e);
     void Play(GameViewModel g);
+    Task ForceStop(GameViewModel g);
     void OpenFolder(GameViewModel g);
     Task Edit(GameViewModel g);
     void ToggleFavorite(GameViewModel g);
@@ -283,6 +284,7 @@ public sealed partial class GameViewModel : ObservableObject
     // ------------------------------------------------------------------ commands
 
     [RelayCommand] private void Play() => _host.Play(this);
+    [RelayCommand] private Task ForceStop() => _host.ForceStop(this);
     [RelayCommand] private void OpenFolder() => _host.OpenFolder(this);
     [RelayCommand] private Task Edit() => _host.Edit(this);
     [RelayCommand] private void ToggleFavorite() => _host.ToggleFavorite(this);

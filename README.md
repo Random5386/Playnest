@@ -27,6 +27,10 @@ Built with C# / .NET 10 and Avalonia, compiled ahead-of-time (NativeAOT) into a 
 - **Game sizes:** Steam and Epic sizes are read instantly; other games are measured once in the background at low priority.
   Sizes are shown on every game tile (can be turned off in Settings), in the details panel, the list view and the header total, and are sortable.
 - **Views:** cover grid (default), icon grid and list, with a "Continue playing" row and a details panel.
+- **Force stop:** a running game shows a red stop button in the opposite corner to quick play (also in the details panel and
+  the right-click menu). Playnest lists exactly which programs it will end and asks first. Only programs inside that game's own
+  install folder are ended. Store clients, Windows processes and shared folders (a drive, `steamapps\common`, Program Files…)
+  are never touched.
 - **Quick play:** a small play button appears in the corner of a game when you point at it (or select it), so one click starts the game. It is unclickable while hidden, never covers the artwork, and can be set to always show or never show. Accidental double launches are ignored.
 - **Playtime tracking** for games started from Playnest *and* games started any other way (Steam, shortcuts, the game's own
   launcher). It checks running programs every 30 s. Your existing Steam playtime is imported too.

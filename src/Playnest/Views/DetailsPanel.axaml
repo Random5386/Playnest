@@ -43,7 +43,15 @@
                     <TextBlock Text="Play" FontWeight="SemiBold" FontSize="16" />
                   </StackPanel>
                 </Button>
-                <TextBlock Text="Running now" Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsRunning}" HorizontalAlignment="Center" />
+                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsRunning}">
+                  <TextBlock Text="Running now" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="accent danger" Command="{Binding ForceStopCommand}" ToolTip.Tip="End the game's programs right away">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="glyph" Text="&#xE71A;" Foreground="White" />
+                      <TextBlock Text="Force stop" />
+                    </StackPanel>
+                  </Button>
+                </Grid>
 
                 <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
                   <Border Classes="card" Margin="0,0,5,10">
