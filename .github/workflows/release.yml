@@ -1,0 +1,102 @@
+# Builds a release from a version tag (e.g. v1.2.0), signs Playnest.exe through SignPath (once it's set up)
+# and creates a DRAFT GitHub release with the exe and its SHA-256 checksum. You review the draft and publish it.
+#
+# Setup: see docs/CODE_SIGNING.md. Until the SignPath secret and variables exist, the exe is released unsigned.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build, e.g. v1.2.0"
+        required: true
+
+permissions:
+  contents: write   # create the draft release
+  actions: read     # SignPath reads this run's details and downloads the unsigned artifact
+
+env:
+  AVALONIA_TELEMETRY_OPTOUT: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      SIGNING_ENABLED: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check the tag matches the version in Playnest.csproj
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content src/Playnest/Playnest.csproj
+          $version = ($proj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+          if ("v$version" -ne $env:TAG) { throw "Tag $env:TAG doesn't match <Version>$version</Version> in Playnest.csproj" }
+
+      - name: Test
+        run: dotnet run --project tests/Playnest.Tests -c Release
+
+      - name: Build native Playnest.exe
+        shell: pwsh
+        run: ./publish.ps1
+
+      - name: Upload unsigned exe
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: playnest-unsigned
+          path: publish/Playnest/Playnest.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        if: env.SIGNING_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600   # time for you to approve the request in SignPath
+          output-artifact-directory: signed
+
+      - name: Use the signed exe
+        if: env.SIGNING_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          $sig = Get-AuthenticodeSignature signed/Playnest.exe
+          if ($sig.Status -ne 'Valid') { throw "Signed exe has signature status $($sig.Status)" }
+          Write-Host "Signed by: $($sig.SignerCertificate.Subject)"
+          Copy-Item signed/Playnest.exe publish/Playnest/Playnest.exe -Force
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          # After signing, because signing changes the file.
+          $hash = (Get-FileHash publish/Playnest/Playnest.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content publish/Playnest/SHA256SUMS.txt "$hash  Playnest.exe" -Encoding ascii
+          "HASH=$hash" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Create draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $signed = if ($env:SIGNING_ENABLED -eq 'true') { "signed (SignPath Foundation)" } else { "**not signed**" }
+          $notes = "Write what changed here.`n`n---`nPlaynest.exe is $signed.`nSHA-256: ``$env:HASH```n`nCheck your download in PowerShell: ``Get-FileHash .\Playnest.exe -Algorithm SHA256``"
+          gh release create $env:TAG publish/Playnest/Playnest.exe publish/Playnest/SHA256SUMS.txt --draft --title "Playnest $($env:TAG.TrimStart('v'))" --notes $notes --repo $env:GITHUB_REPOSITORY

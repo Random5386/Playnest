@@ -684,6 +684,16 @@ return failed == 0 ? 0 : 1;
 // ---------------------------------------------------------------------------------------------
 static string[] FindSampleExes()
 {
+    // On Windows use programs known to have an icon. Not every exe has one (console tools such as bfsvc.exe don't),
+    // so "the first exes found" would test the sample, not the extractor.
+    var win = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+    if (!string.IsNullOrEmpty(win))
+    {
+        var known = new[] { "explorer.exe", "regedit.exe", "HelpPane.exe", Path.Combine("System32", "notepad.exe"), Path.Combine("System32", "mmc.exe") }
+            .Select(n => Path.Combine(win, n)).Where(File.Exists).Take(4).ToArray();
+        if (known.Length > 0) return known;
+    }
+
     var candidates = new List<string>();
     foreach (var root in new[] { Environment.GetFolderPath(Environment.SpecialFolder.Windows), "/root/.cache/uv", "/usr/lib/python3/dist-packages" })
     {

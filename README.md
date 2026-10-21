@@ -106,6 +106,9 @@ GitHub Actions (`.github/workflows/ci.yml`) builds Playnest and runs these tests
 
 ## Releasing an update
 
+Pushing a version tag (e.g. `v1.0.1`) makes GitHub Actions build, sign and draft the release for you: see
+[docs/CODE_SIGNING.md](docs/CODE_SIGNING.md) (one-time SignPath setup + steps). To release by hand instead:
+
 1. Raise `<Version>` in `src/Playnest/Playnest.csproj` (e.g. `1.0.0` → `1.0.1` for fixes, `1.1.0` for new features) and commit.
 2. Double-click `publish.cmd`.
 3. On GitHub: **Releases → Draft a new release**, tag `v1.0.1` (must match the version), write what changed, attach `publish\Playnest\Playnest.exe` (or a zip of that folder) and publish.
