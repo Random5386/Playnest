@@ -36,14 +36,23 @@ public sealed class ScanContext(AppSettings settings, IReadOnlyList<UninstallEnt
         if (!string.IsNullOrEmpty(dir)) ClaimedDirs.Add(PathUtil.Key(dir));
     }
 
+    private Dictionary<string, UninstallEntry>? _byInstallLocation;
+
     /// <summary>Uninstall entry whose install folder matches <paramref name="dir"/>.</summary>
     public UninstallEntry? FindUninstallFor(string? dir)
     {
         if (string.IsNullOrEmpty(dir)) return null;
-        var key = PathUtil.Key(dir);
-        foreach (var u in Uninstall)
-            if (PathUtil.Key(u.InstallLocation) == key) return u;
-        return null;
+        // Built once per scan instead of normalising every entry's path on every lookup. First entry wins, as before.
+        if (_byInstallLocation is null)
+        {
+            _byInstallLocation = new Dictionary<string, UninstallEntry>();
+            foreach (var u in Uninstall)
+            {
+                var k = PathUtil.Key(u.InstallLocation);
+                if (k.Length > 0) _byInstallLocation.TryAdd(k, u);
+            }
+        }
+        return _byInstallLocation.TryGetValue(PathUtil.Key(dir), out var e) ? e : null;
     }
 }
 

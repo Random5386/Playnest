@@ -208,6 +208,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
             var token = _scanCts.Token;
             var result = await Task.Run(() => ScanService.Run(settings, progress, token), token);
             var summary = Library.Merge(result, Settings);
+            _sessions.ForgetFolderContents(); // games may have been installed, updated or patched
             SyncViewModels();
             Rebuild();
             StartSizeCalculation();
@@ -397,7 +398,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         {
             var norm = PathUtil.NormalizeName(search);
             q = q.Where(g => g.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                             || (norm.Length > 0 && PathUtil.NormalizeName(g.Name).Contains(norm)));
+                             || (norm.Length > 0 && g.SearchKey.Contains(norm)));
         }
 
         q = _filterKey == "recent" && search.Length == 0 ? q.OrderByDescending(g => g.Entry.LastPlayedUtc) : Sort(q);
@@ -566,13 +567,30 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     private GameEntry? _lastLaunched;
     private long _lastLaunchTicks;
 
-    public void Play(GameViewModel g)
+    public void Play(GameViewModel g) => _ = PlayAsync(g);
+
+    private async Task PlayAsync(GameViewModel g)
     {
         // Ignore a repeat launch of the same game within 3 s (double-clicks, Enter held down, quick play + double-click).
         var now = Environment.TickCount64;
         if (ReferenceEquals(_lastLaunched, g.Entry) && now - _lastLaunchTicks < 3000) return;
         _lastLaunched = g.Entry;
         _lastLaunchTicks = now;
+
+        // A link that isn't a known store link (e.g. from an imported .url file) is opened only once the user agrees.
+        if (Settings.ConfirmUnusualLaunchLinks && LaunchService.LinkFor(g.Entry) is { } link && !LaunchService.IsKnownLink(link)
+            && link != g.Entry.ApprovedLaunchLink)
+        {
+            bool ok = await Ui.Confirm($"Open this link for {g.Name}?",
+                $"{g.Name} starts with a link that isn't a game store link:\n\n{link}\n\nOnly continue if you added it yourself and trust it. " +
+                "Playnest won't ask again for this link (you can turn these checks off in Settings → Behaviour).",
+                "Open link", danger: true);
+            if (!ok) { _lastLaunchTicks = 0; return; }
+            g.Entry.ApprovedLaunchLink = link;
+            Library.SaveSoon();
+            now = _lastLaunchTicks = Environment.TickCount64;
+        }
+
         try
         {
             LaunchService.Launch(g.Entry);
@@ -801,6 +819,12 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         {
             var dir = e.EffectiveDir;
             if (dir is null || !Directory.Exists(dir)) { ShowToast("No uninstaller or install folder was found for this item.", error: true); return; }
+            // Same rule as force stop: never offer to bin a drive, a library folder like "D:\Games", Program Files, etc.
+            if (!GameProcesses.IsSafeGameFolder(dir))
+            {
+                ShowToast($"No uninstaller was found, and {dir} isn't a folder that belongs only to {g.Name}, so Playnest won't remove it.", error: true);
+                return;
+            }
             bool recycle = await Ui.Confirm($"Uninstall {g.Name}?",
                 $"No uninstaller was found. Playnest can move the game folder to the Recycle Bin instead:\n\n{dir}\n\nYou can restore it from the Recycle Bin if needed.",
                 "Move to Recycle Bin", danger: true);
@@ -812,7 +836,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
                 Rebuild();
                 ShowToast($"{g.Name} was moved to the Recycle Bin.");
             }
-            else ShowToast("The folder couldn't be moved to the Recycle Bin.", error: true);
+            else ShowToast("The folder wasn't moved to the Recycle Bin.", error: true);
             return;
         }
 

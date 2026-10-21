@@ -74,6 +74,10 @@ public static partial class GameClassifier
         ("nw.dll", "NW.js (RPG Maker)"), ("libogg.dll", "Ogg"), ("discord-rpc.dll", "Discord RPC"),
     ];
 
+    // Lookup tables for the per-file loop below (a folder can have thousands of files).
+    private static readonly Dictionary<string, string> StrongByName = StrongFiles.ToDictionary(x => x.File, x => x.Why);
+    private static readonly Dictionary<string, string> MediumByName = MediumFiles.ToDictionary(x => x.File, x => x.Why);
+
     private static readonly string[] StrongExtensions = [".forge", ".cas", ".pck", ".rpa", ".vpk", ".bk2", ".bnk", ".wem", ".big", ".rpf", ".archive", ".ucas", ".utoc"];
 
     // Signs of a desktop application / launcher rather than a game
@@ -137,11 +141,10 @@ public static partial class GameClassifier
                         continue;
                     }
 
-                    foreach (var (f, why) in StrongFiles)
-                        if (lower == f) { Add(ref score, seenStrong, reasons, why, 10); break; }
+                    if (StrongByName.TryGetValue(lower, out var strongWhy)) Add(ref score, seenStrong, reasons, strongWhy, 10);
 
-                    foreach (var (f, why) in MediumFiles)
-                        if (lower == f && medium < 3 && seenStrong.Add("m:" + why)) { score += 4; medium++; reasons.Add(why); break; }
+                    if (medium < 3 && MediumByName.TryGetValue(lower, out var mediumWhy) && seenStrong.Add("m:" + mediumWhy))
+                    { score += 4; medium++; reasons.Add(mediumWhy); }
 
                     var ext = Path.GetExtension(lower);
                     if (archives < 2 && StrongExtensions.Contains(ext)) { score += 5; archives++; reasons.Add("game archive " + ext); }
@@ -149,9 +152,10 @@ public static partial class GameClassifier
                     { score += 3; archives++; reasons.Add("large data archive"); }
 
                     if (depth <= 1)
+                    {
+                        var rel = Path.GetRelativePath(dir, fi.FullName).ToLowerInvariant();
                         foreach (var (f, pen) in AppFiles)
                         {
-                            var rel = Path.GetRelativePath(dir, fi.FullName).ToLowerInvariant();
                             if (rel.EndsWith(f))
                             {
                                 score -= pen;
@@ -159,6 +163,7 @@ public static partial class GameClassifier
                                 if (f.Contains("app.asar") || f == "electron.exe") electron = true;
                             }
                         }
+                    }
                 }
             }
             catch { }

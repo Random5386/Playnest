@@ -22,15 +22,17 @@ public static class Native
         catch { return null; }
     }
 
-    /// <summary>Sends a folder to the Recycle Bin (undoable). Returns true on success.</summary>
+    /// <summary>Sends a folder to the Recycle Bin (undoable). Returns true on success, false on failure or when the user cancels.</summary>
     public static bool RecycleFolder(string path)
     {
         if (!OperatingSystem.IsWindows()) return false;
         try
         {
+            // Windows' own dialogs must stay on: a game folder is often too big for the Recycle Bin, and with the
+            // dialogs hidden Windows deletes such a folder permanently without asking. With them shown, it warns first.
             Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(
                 path,
-                Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                Microsoft.VisualBasic.FileIO.UIOption.AllDialogs,
                 Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin,
                 Microsoft.VisualBasic.FileIO.UICancelOption.DoNothing);
             return !Directory.Exists(path);

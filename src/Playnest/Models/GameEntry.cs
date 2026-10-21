@@ -115,6 +115,8 @@ public sealed class GameEntry
     public string? CustomIcon { get; set; }
     public string? CustomHero { get; set; }
     public bool RunAsAdmin { get; set; }
+    /// <summary>An unusual launch link the user has agreed to open (they are asked again if the link changes).</summary>
+    public string? ApprovedLaunchLink { get; set; }
     public bool Favorite { get; set; }
     public bool IsManual { get; set; }
     public bool Missing { get; set; }
