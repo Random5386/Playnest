@@ -8,7 +8,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>Playnest</AssemblyName>
     <RootNamespace>Playnest</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>Playnest</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\playnest.ico</ApplicationIcon>
