@@ -55,7 +55,7 @@ Everything that touches the internet goes through one place (`Services/Net/SafeH
 - **What it can contact:** HTTPS only, to a fixed list of hosts: Steam's store/API/CDN, Epic's image CDN, SteamGridDB and GitHub's API (update check). Any other host is refused, including redirects to one.
 - **Redirects:** followed by hand (at most 3), with every hop checked again. Downgrades to HTTP are refused.
 - **Responses:** size-limited while reading (15 MB for images, 4 MB for JSON), which also stops compressed "zip bombs".
-- **Connections:** no cookies and short timeouts. The SteamGridDB key is sent only to `www.steamgriddb.com`.
+- **Connections:** no cookies, short timeouts and an overall time limit per download (a stalled server can't hold a download forever). The SteamGridDB key is sent only to `www.steamgriddb.com`.
 - **Images:** a download is only accepted if its header says it's a real JPEG/PNG/WebP with sane dimensions. A tiny file claiming 60 000 px is refused before it reaches the decoder.
 - **API data:** values from Steam's API (file names, ids, icon hashes) are pattern-checked before they're used in a URL.
 - **Disk:** downloaded files are saved under fixed names in Playnest's cache folder; nothing from the network decides a file path.
@@ -66,7 +66,7 @@ On your PC:
 
 - **Untrusted local files:** XML is parsed with DTDs and external entities disabled. The binary readers (Steam `appinfo.vdf`, exe icons, shortcuts) have size and depth limits.
 - **Launch links:** values read from store records are escaped or validated before they go into a launch link or command line.
-- **Uninstalls:** they always ask first and show the exact command that will run.
+- **Uninstalls:** they always ask first and show the exact command that will run. When a game has no uninstaller, its folder can be moved to the Recycle Bin, but only if the folder belongs to that game alone (never a drive, a library folder such as `D:\Games`, or Program Files), and Windows warns before deleting anything too big for the Recycle Bin.
 - **Exported settings:** these never include your SteamGridDB key.
 - **No direct Windows API calls:** the app uses only standard .NET APIs.
 

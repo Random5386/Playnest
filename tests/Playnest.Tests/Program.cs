@@ -100,6 +100,10 @@ Section("Xbox package family name");
     var roots = XboxScanner.ReadGamingRoot(gr);
     Eq(1, roots.Count, ".GamingRoot entry count");
     Eq("XboxGames", roots.FirstOrDefault(), ".GamingRoot folder");
+    // The launch link goes to explorer.exe, so package names and app ids from MicrosoftGame.config are checked.
+    Check(XboxScanner.PackageNameRegex().IsMatch("Microsoft.624F8B84B80") && XboxScanner.AppIdRegex().IsMatch("Game"), "normal package name and app id accepted");
+    Check(!XboxScanner.PackageNameRegex().IsMatch(@"X ,C:\Users\Public\evil.exe"), "package name with spaces/commas/paths refused");
+    Check(!XboxScanner.AppIdRegex().IsMatch("Game /root,C:\\") && !XboxScanner.AppIdRegex().IsMatch("Game\"x"), "app id with extra arguments refused");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -525,6 +529,12 @@ Section("Network safety (everything that touches the internet)");
     Check(SafeHttp.GetBytesAsync("https://shared.akamai.steamstatic.com/to-ok", 1 << 20).Result is not null, "same-site redirect followed");
     Check(SafeHttp.GetBytesAsync("https://shared.akamai.steamstatic.com/loop", 1 << 20).Result is null, "redirect loop stopped");
     Check(SafeHttp.GetBytesAsync("https://shared.akamai.steamstatic.com/huge", 1 << 20).Result is null, "endless/oversized response cut off");
+    handler.Routes["https://shared.akamai.steamstatic.com/stall"] = _ => new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StreamContent(new StallingStream()) };
+    SafeHttp.TotalTimeout = TimeSpan.FromSeconds(1);
+    var stallTimer = System.Diagnostics.Stopwatch.StartNew();
+    Check(SafeHttp.GetBytesAsync("https://shared.akamai.steamstatic.com/stall", 1 << 20).Result is null && stallTimer.Elapsed < TimeSpan.FromSeconds(10),
+        "a response body that never finishes is given up on", stallTimer.Elapsed.ToString());
+    SafeHttp.TotalTimeout = TimeSpan.FromSeconds(45);
     Eq("none", System.Text.Encoding.UTF8.GetString(SafeHttp.GetBytesAsync("https://www.steamgriddb.com/api/v2/x", 1 << 20, "SECRETKEY123").Result ?? []), "API key never forwarded to another host");
     Check(handler.Requests.All(u => u.StartsWith("https://") && !u.Contains("evil.com")), "no request ever reached a non-allowed host", string.Join(", ", handler.Requests));
 
@@ -617,6 +627,24 @@ Section("Force stop (only the game's own programs)");
         Check(!theirs.HasExited, "the other game's program keeps running");
         theirs.Kill();
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+Section("Scan lookups");
+{
+    var gameA = Dir("lookup", "Game A");
+    var gameB = Dir("lookup", "Game B");
+    var entries = new List<UninstallEntry>
+    {
+        new("first", "Game A", gameA, "unins.exe", null, null, false),
+        new("second", "Game A (duplicate)", gameA + Path.DirectorySeparatorChar, "other.exe", null, null, false),
+        new("none", "No location", null, "x.exe", null, null, false),
+        new("b", "Game B", gameB, "b.exe", null, null, false),
+    };
+    var ctx = new ScanContext(new AppSettings(), entries, CancellationToken.None);
+    Eq("first", ctx.FindUninstallFor(gameA)?.KeyName, "uninstall entry found by install folder (first one wins)");
+    Eq("b", ctx.FindUninstallFor(gameB)?.KeyName, "second folder found too");
+    Check(ctx.FindUninstallFor(Dir("lookup", "Game C")) is null && ctx.FindUninstallFor(null) is null, "unknown or empty folder finds nothing");
 }
 
 Console.WriteLine($"\n{passed} passed, {failed} failed");
@@ -731,6 +759,26 @@ sealed class FakeHandler : HttpMessageHandler
         Requests.Add(url);
         return Task.FromResult(Routes.TryGetValue(url, out var f) ? f(request) : new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
     }
+}
+
+/// <summary>Sends headers, then never sends any body bytes (until cancelled).</summary>
+sealed class StallingStream : Stream
+{
+    public override bool CanRead => true;
+    public override bool CanSeek => false;
+    public override bool CanWrite => false;
+    public override long Length => throw new NotSupportedException();
+    public override long Position { get => 0; set { } }
+    public override void Flush() { }
+    public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
+    {
+        await Task.Delay(Timeout.Infinite, ct);
+        return 0;
+    }
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
 
 sealed class EndlessStream : Stream

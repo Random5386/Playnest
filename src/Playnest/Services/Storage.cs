@@ -79,6 +79,8 @@ public static class Log
 
 public static class Storage
 {
+    private static readonly object WriteGate = new();
+
     public static AppSettings LoadSettings()
     {
         try
@@ -98,7 +100,7 @@ public static class Storage
     }
 
     public static void SaveSettings(AppSettings s) =>
-        AtomicWrite(AppPaths.SettingsFile, JsonSerializer.SerializeToUtf8Bytes(s, JsonCtx.Default.AppSettings));
+        AtomicWrite(AppPaths.SettingsFile, () => JsonSerializer.SerializeToUtf8Bytes(s, JsonCtx.Default.AppSettings));
 
     public static LibraryData LoadLibrary()
     {
@@ -119,7 +121,7 @@ public static class Storage
     }
 
     public static void SaveLibrary(LibraryData d) =>
-        AtomicWrite(AppPaths.LibraryFile, JsonSerializer.SerializeToUtf8Bytes(d, JsonCtx.Default.LibraryData));
+        AtomicWrite(AppPaths.LibraryFile, () => JsonSerializer.SerializeToUtf8Bytes(d, JsonCtx.Default.LibraryData));
 
     /// <summary>Settings as JSON for sharing/backups. Secrets (the SteamGridDB key) are left out.</summary>
     public static string ExportSettings(AppSettings s)
@@ -136,14 +138,22 @@ public static class Storage
         catch { return null; }
     }
 
-    private static void AtomicWrite(string path, byte[] data)
+    /// <summary>
+    /// Serializes and writes via a temp file. Saves run on timer threads, so serializing happens inside the try:
+    /// an exception there (e.g. a list changed mid-save) must be logged, not crash the app.
+    /// </summary>
+    private static void AtomicWrite(string path, Func<byte[]> serialize)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var tmp = path + ".tmp";
-            File.WriteAllBytes(tmp, data);
-            File.Move(tmp, path, overwrite: true);
+            var data = serialize();
+            lock (WriteGate) // a timer save and the save on exit can overlap; they share the .tmp file
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                var tmp = path + ".tmp";
+                File.WriteAllBytes(tmp, data);
+                File.Move(tmp, path, overwrite: true);
+            }
         }
         catch (Exception ex)
         {

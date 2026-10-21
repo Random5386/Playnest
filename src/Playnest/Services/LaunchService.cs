@@ -115,6 +115,9 @@ public sealed class SessionTracker : IDisposable
     private int _periodMs;
     private bool _watchAll;
     private int _indexVersion;
+    // Exe names per install folder (PathUtil.Key). Folder contents rarely change between scans, so library edits
+    // (rename, favourite, remove…) rebuild the index without walking every game folder on disk again.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string[]> _exeNameCache = new();
     private static readonly TimeSpan StartTimeout = TimeSpan.FromMinutes(4);
 
     // Exe names that say nothing about which game is running.
@@ -148,6 +151,12 @@ public sealed class SessionTracker : IDisposable
         Reschedule();
     }
 
+    /// <summary>Forgets the remembered exe names so the next index rebuild reads every folder again (call after a scan).</summary>
+    public void ForgetFolderContents() => _exeNameCache.Clear();
+
+    private string[] CachedExeNames(string dir) =>
+        _exeNameCache.GetOrAdd(PathUtil.Key(dir), _ => ExeNames(dir).ToArray());
+
     /// <summary>Rebuilds the exe-name index in the background (call after the library changes).</summary>
     public void UpdateIndex(IReadOnlyList<GameEntry> games)
     {
@@ -161,7 +170,7 @@ public sealed class SessionTracker : IDisposable
             var index = new Dictionary<string, List<(GameEntry, string)>>(StringComparer.OrdinalIgnoreCase);
             foreach (var (game, dir) in snapshot)
             {
-                foreach (var name in ExeNames(dir))
+                foreach (var name in CachedExeNames(dir))
                 {
                     if (!index.TryGetValue(name, out var list)) index[name] = list = new();
                     if (!list.Any(x => x.Item1 == game)) list.Add((game, dir));
@@ -224,7 +233,9 @@ public sealed class SessionTracker : IDisposable
         // Make sure the launched game is matchable even if the index hasn't been built yet (off the UI thread).
         Task.Run(() =>
         {
-            var names = ExeNames(dir).Take(100).ToList();
+            var all = ExeNames(dir).ToArray(); // read fresh: the game may have been patched since the last scan
+            _exeNameCache[PathUtil.Key(dir)] = all;
+            var names = all.Take(100).ToList();
             lock (_gate)
             {
                 var copy = new Dictionary<string, List<(GameEntry Game, string Dir)>>(_index, StringComparer.OrdinalIgnoreCase);

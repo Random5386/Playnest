@@ -423,7 +423,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var p = await _main.Ui.PickFile("Import settings", "JSON", ["*.json"]);
         if (p is null) return;
-        var imported = Storage.ImportSettings(await File.ReadAllTextAsync(p));
+        AppSettings? imported;
+        try { imported = Storage.ImportSettings(await File.ReadAllTextAsync(p)); }
+        catch (Exception ex) { _main.ShowToast("Import failed: " + ex.Message, error: true); return; }
         if (imported is null) { _main.ShowToast("That file isn't a Playnest settings file.", error: true); return; }
         // Copy every public property so the existing object (shared by the app) is updated in place.
         foreach (var prop in SettingsProperties)

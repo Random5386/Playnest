@@ -208,6 +208,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
             var token = _scanCts.Token;
             var result = await Task.Run(() => ScanService.Run(settings, progress, token), token);
             var summary = Library.Merge(result, Settings);
+            _sessions.ForgetFolderContents(); // games may have been installed, updated or patched
             SyncViewModels();
             Rebuild();
             StartSizeCalculation();
@@ -397,7 +398,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         {
             var norm = PathUtil.NormalizeName(search);
             q = q.Where(g => g.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                             || (norm.Length > 0 && PathUtil.NormalizeName(g.Name).Contains(norm)));
+                             || (norm.Length > 0 && g.SearchKey.Contains(norm)));
         }
 
         q = _filterKey == "recent" && search.Length == 0 ? q.OrderByDescending(g => g.Entry.LastPlayedUtc) : Sort(q);
@@ -801,6 +802,12 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         {
             var dir = e.EffectiveDir;
             if (dir is null || !Directory.Exists(dir)) { ShowToast("No uninstaller or install folder was found for this item.", error: true); return; }
+            // Same rule as force stop: never offer to bin a drive, a library folder like "D:\Games", Program Files, etc.
+            if (!GameProcesses.IsSafeGameFolder(dir))
+            {
+                ShowToast($"No uninstaller was found, and {dir} isn't a folder that belongs only to {g.Name}, so Playnest won't remove it.", error: true);
+                return;
+            }
             bool recycle = await Ui.Confirm($"Uninstall {g.Name}?",
                 $"No uninstaller was found. Playnest can move the game folder to the Recycle Bin instead:\n\n{dir}\n\nYou can restore it from the Recycle Bin if needed.",
                 "Move to Recycle Bin", danger: true);
@@ -812,7 +819,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
                 Rebuild();
                 ShowToast($"{g.Name} was moved to the Recycle Bin.");
             }
-            else ShowToast("The folder couldn't be moved to the Recycle Bin.", error: true);
+            else ShowToast("The folder wasn't moved to the Recycle Bin.", error: true);
             return;
         }
 
