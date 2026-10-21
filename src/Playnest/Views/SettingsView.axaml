@@ -215,6 +215,13 @@
             </StackPanel>
             <ToggleSwitch Grid.Column="1" IsChecked="{Binding FreeMemoryWhileGaming}" />
           </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Ask before opening unusual launch links" />
+              <TextBlock Text="Store links (Steam, Epic, Xbox…) open straight away. Anything else, such as a file path or another program's link, asks once per game first." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ConfirmUnusualLaunchLinks}" />
+          </Grid>
           <Separator Classes="thin" />
           <Grid Classes="setting" ColumnDefinitions="*,Auto">
             <TextBlock Text="Closing the window keeps Playnest in the tray" VerticalAlignment="Center" />

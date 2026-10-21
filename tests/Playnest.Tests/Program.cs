@@ -630,6 +630,31 @@ Section("Force stop (only the game's own programs)");
 }
 
 // ---------------------------------------------------------------------------------------------
+Section("Launch links (unusual links need the user's OK)");
+{
+    foreach (var ok in new[]
+             {
+                 "steam://rungameid/620", "com.epicgames.launcher://apps/a%3Ab%3Ac?action=launch&silent=true", "uplay://launch/635/0",
+                 "amazon-games://play/amzn1.adg.product.x", "https://example.com/web-game",
+                 @"shell:AppsFolder\Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App",
+             })
+        Check(LaunchService.IsKnownLink(ok), $"store link recognised: {ok}");
+    foreach (var bad in new[]
+             {
+                 @"C:\Users\Public\evil.exe", @"\\server\share\evil.exe", "file:///C:/evil.exe", "ms-msdt:/id PCWDiagnostic",
+                 "search-ms:query=x", @"shell:AppsFolder\X_8wekyb3d8bbwe!App /root,C:\evil.exe", "shell:startup", "not a link",
+             })
+        Check(!LaunchService.IsKnownLink(bad), $"unusual link flagged: {bad}");
+
+    var store = new GameEntry { LaunchUri = "steam://rungameid/1", ExePath = @"C:\g\g.exe" };
+    Eq("steam://rungameid/1", LaunchService.LinkFor(store), "store game opens its store link");
+    store.CustomExePath = @"C:\g\other.exe";
+    Eq(null, LaunchService.LinkFor(store), "a chosen exe replaces the store link");
+    store.CustomLaunchUri = "goggalaxy://openGameView/1";
+    Eq("goggalaxy://openGameView/1", LaunchService.LinkFor(store), "a custom link wins over a chosen exe");
+}
+
+// ---------------------------------------------------------------------------------------------
 Section("Scan lookups");
 {
     var gameA = Dir("lookup", "Game A");

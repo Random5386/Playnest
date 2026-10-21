@@ -567,13 +567,30 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     private GameEntry? _lastLaunched;
     private long _lastLaunchTicks;
 
-    public void Play(GameViewModel g)
+    public void Play(GameViewModel g) => _ = PlayAsync(g);
+
+    private async Task PlayAsync(GameViewModel g)
     {
         // Ignore a repeat launch of the same game within 3 s (double-clicks, Enter held down, quick play + double-click).
         var now = Environment.TickCount64;
         if (ReferenceEquals(_lastLaunched, g.Entry) && now - _lastLaunchTicks < 3000) return;
         _lastLaunched = g.Entry;
         _lastLaunchTicks = now;
+
+        // A link that isn't a known store link (e.g. from an imported .url file) is opened only once the user agrees.
+        if (Settings.ConfirmUnusualLaunchLinks && LaunchService.LinkFor(g.Entry) is { } link && !LaunchService.IsKnownLink(link)
+            && link != g.Entry.ApprovedLaunchLink)
+        {
+            bool ok = await Ui.Confirm($"Open this link for {g.Name}?",
+                $"{g.Name} starts with a link that isn't a game store link:\n\n{link}\n\nOnly continue if you added it yourself and trust it. " +
+                "Playnest won't ask again for this link (you can turn these checks off in Settings → Behaviour).",
+                "Open link", danger: true);
+            if (!ok) { _lastLaunchTicks = 0; return; }
+            g.Entry.ApprovedLaunchLink = link;
+            Library.SaveSoon();
+            now = _lastLaunchTicks = Environment.TickCount64;
+        }
+
         try
         {
             LaunchService.Launch(g.Entry);

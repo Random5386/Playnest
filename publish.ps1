@@ -40,4 +40,13 @@ if ($LASTEXITCODE -ne 0) {
 Get-ChildItem $out -Filter *.pdb | Remove-Item -ErrorAction SilentlyContinue
 $exe = Join-Path $out "Playnest.exe"
 $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+
+# SHA-256 checksum, so people can check the exe they downloaded is exactly the one you published.
+# Paste the line into the GitHub release notes and/or attach SHA256SUMS.txt to the release.
+$hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+$sums = Join-Path $out "SHA256SUMS.txt"
+Set-Content -Path $sums -Value "$hash  Playnest.exe" -Encoding ascii
+
 Write-Host "`nDone: $exe ($size MB)" -ForegroundColor Green
+Write-Host "SHA-256: $hash" -ForegroundColor Green
+Write-Host "(saved to $sums - put it in the release notes)"

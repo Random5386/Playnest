@@ -66,6 +66,8 @@ On your PC:
 
 - **Untrusted local files:** XML is parsed with DTDs and external entities disabled. The binary readers (Steam `appinfo.vdf`, exe icons, shortcuts) have size and depth limits.
 - **Launch links:** values read from store records are escaped or validated before they go into a launch link or command line.
+  A link that isn't a known store link (for example a file path, a network share or another program's link type, as an imported `.url` file can contain)
+  is opened only after you agree, once per game. This can be turned off in Settings → Behaviour.
 - **Uninstalls:** they always ask first and show the exact command that will run. When a game has no uninstaller, its folder can be moved to the Recycle Bin, but only if the folder belongs to that game alone (never a drive, a library folder such as `D:\Games`, or Program Files), and Windows warns before deleting anything too big for the Recycle Bin.
 - **Exported settings:** these never include your SteamGridDB key.
 - **No direct Windows API calls:** the app uses only standard .NET APIs.
@@ -100,11 +102,15 @@ The core logic (scanners, parsers, classifier, artwork, library merging) has a d
 dotnet run --project tests/Playnest.Tests
 ```
 
+GitHub Actions (`.github/workflows/ci.yml`) builds Playnest and runs these tests on Windows and Linux for every push and pull request.
+
 ## Releasing an update
 
 1. Raise `<Version>` in `src/Playnest/Playnest.csproj` (e.g. `1.0.0` → `1.0.1` for fixes, `1.1.0` for new features) and commit.
 2. Double-click `publish.cmd`.
 3. On GitHub: **Releases → Draft a new release**, tag `v1.0.1` (must match the version), write what changed, attach `publish\Playnest\Playnest.exe` (or a zip of that folder) and publish.
+   Also attach `publish\Playnest\SHA256SUMS.txt` and paste its line into the notes, so anyone can check their download:
+   `Get-FileHash .\Playnest.exe -Algorithm SHA256` in PowerShell must print the same value.
 4. Copies of Playnest with "Check for updates" on will show "Playnest 1.0.1 is available" within a day. The repository must be public for others to see releases.
 
 The repository Playnest checks is set in `Services/Net/UpdateService.cs` (`Repository`).

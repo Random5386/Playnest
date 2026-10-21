@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Playnest.Models;
 using Playnest.Services.Platform;
 using Playnest.Services.Scanning;
@@ -8,16 +9,44 @@ namespace Playnest.Services;
 public enum UninstallOutcome { Started, OpenedStore, NoUninstaller, Failed }
 
 /// <summary>Starting games, opening folders and running uninstallers.</summary>
-public static class LaunchService
+public static partial class LaunchService
 {
+    /// <summary>The link <see cref="Launch"/> opens for this item, or null when it starts an exe instead.</summary>
+    public static string? LinkFor(GameEntry e)
+    {
+        // A user-chosen exe beats the store URI; otherwise stores launch through their client (keeps DRM/cloud saves happy).
+        var uri = string.IsNullOrWhiteSpace(e.CustomExePath) ? e.EffectiveUri : e.CustomLaunchUri;
+        return string.IsNullOrWhiteSpace(uri) ? null : uri;
+    }
+
+    // Link types that start a game through its store or a known launcher (plus web pages, which open in the browser).
+    private static readonly HashSet<string> KnownSchemes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "steam", "com.epicgames.launcher", "uplay", "amazon-games", "goggalaxy", "origin", "origin2", "battlenet",
+        "riotclient", "itch", "heroic", "playnite", "http", "https",
+    };
+
+    /// <summary>Xbox / Microsoft Store apps: shell:AppsFolder\&lt;package family name&gt;!&lt;app id&gt; and nothing else.</summary>
+    [GeneratedRegex(@"^shell:AppsFolder\\[A-Za-z0-9.\-]{3,50}_[0-9a-z]{13}![A-Za-z][A-Za-z0-9.]{0,63}$", RegexOptions.IgnoreCase)]
+    private static partial Regex AppsFolderLink();
+
+    /// <summary>
+    /// True for links that start a game through a store or launcher. Anything else (a file or network path, or another
+    /// program's link type) is "unusual" and, when the setting is on, needs the user's OK before it is opened.
+    /// </summary>
+    public static bool IsKnownLink(string link)
+    {
+        link = link.Trim();
+        if (link.StartsWith("shell:", StringComparison.OrdinalIgnoreCase)) return AppsFolderLink().IsMatch(link);
+        return Uri.TryCreate(link, UriKind.Absolute, out var u) && !u.IsFile && !u.IsUnc && KnownSchemes.Contains(u.Scheme);
+    }
+
     public static void Launch(GameEntry e)
     {
-        var uri = e.EffectiveUri;
+        var uri = LinkFor(e);
         var exe = e.EffectiveExe;
-        // A user-chosen exe beats the store URI; otherwise stores launch through their client (keeps DRM/cloud saves happy).
-        if (!string.IsNullOrWhiteSpace(e.CustomExePath)) uri = e.CustomLaunchUri;
 
-        if (!string.IsNullOrWhiteSpace(uri))
+        if (uri is not null)
         {
             if (uri.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
                 Start(new ProcessStartInfo("explorer.exe", uri) { UseShellExecute = true });
