@@ -23,9 +23,8 @@ See "Security & privacy" in the [README](../README.md).
 
 ## One-time setup
 
-1. **Add an open-source licence.** SignPath Foundation only signs projects under an
-   [OSI-approved licence](https://opensource.org/licenses) (e.g. MIT, Apache-2.0, GPL-3.0) with no proprietary parts.
-   Add a `LICENSE` file to the repository.
+1. **Open-source licence:** done. Playnest is under the [MIT License](../LICENSE), which is OSI-approved as SignPath
+   Foundation requires. Keep every part of the project open source (no proprietary components).
 2. **Make sure the repository is public** and has at least one published release (SignPath requires the project to be
    released already in the form that will be signed; an unsigned release made by the workflow below counts).
 3. **Apply** at <https://signpath.org/apply>. Give the repository URL, say releases are built by GitHub Actions, and link
