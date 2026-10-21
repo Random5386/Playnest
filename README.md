@@ -55,7 +55,7 @@ Everything that touches the internet goes through one place (`Services/Net/SafeH
 - **What it can contact:** HTTPS only, to a fixed list of hosts: Steam's store/API/CDN, Epic's image CDN, SteamGridDB and GitHub's API (update check). Any other host is refused, including redirects to one.
 - **Redirects:** followed by hand (at most 3), with every hop checked again. Downgrades to HTTP are refused.
 - **Responses:** size-limited while reading (15 MB for images, 4 MB for JSON), which also stops compressed "zip bombs".
-- **Connections:** no cookies and short timeouts. The SteamGridDB key is sent only to `www.steamgriddb.com`.
+- **Connections:** no cookies, short timeouts and an overall time limit per download (a stalled server can't hold a download forever). The SteamGridDB key is sent only to `www.steamgriddb.com`.
 - **Images:** a download is only accepted if its header says it's a real JPEG/PNG/WebP with sane dimensions. A tiny file claiming 60 000 px is refused before it reaches the decoder.
 - **API data:** values from Steam's API (file names, ids, icon hashes) are pattern-checked before they're used in a URL.
 - **Disk:** downloaded files are saved under fixed names in Playnest's cache folder; nothing from the network decides a file path.
@@ -66,7 +66,9 @@ On your PC:
 
 - **Untrusted local files:** XML is parsed with DTDs and external entities disabled. The binary readers (Steam `appinfo.vdf`, exe icons, shortcuts) have size and depth limits.
 - **Launch links:** values read from store records are escaped or validated before they go into a launch link or command line.
-- **Uninstalls:** they always ask first and show the exact command that will run.
+  A link that isn't a known store link (for example a file path, a network share or another program's link type, as an imported `.url` file can contain)
+  is opened only after you agree, once per game. This can be turned off in Settings → Behaviour.
+- **Uninstalls:** they always ask first and show the exact command that will run. When a game has no uninstaller, its folder can be moved to the Recycle Bin, but only if the folder belongs to that game alone (never a drive, a library folder such as `D:\Games`, or Program Files), and Windows warns before deleting anything too big for the Recycle Bin.
 - **Exported settings:** these never include your SteamGridDB key.
 - **No direct Windows API calls:** the app uses only standard .NET APIs.
 
@@ -100,11 +102,18 @@ The core logic (scanners, parsers, classifier, artwork, library merging) has a d
 dotnet run --project tests/Playnest.Tests
 ```
 
+GitHub Actions (`.github/workflows/ci.yml`) builds Playnest and runs these tests on Windows and Linux for every push and pull request.
+
 ## Releasing an update
+
+Pushing a version tag (e.g. `v1.0.1`) makes GitHub Actions build, sign and draft the release for you: see
+[docs/CODE_SIGNING.md](docs/CODE_SIGNING.md) (one-time SignPath setup + steps). To release by hand instead:
 
 1. Raise `<Version>` in `src/Playnest/Playnest.csproj` (e.g. `1.0.0` → `1.0.1` for fixes, `1.1.0` for new features) and commit.
 2. Double-click `publish.cmd`.
 3. On GitHub: **Releases → Draft a new release**, tag `v1.0.1` (must match the version), write what changed, attach `publish\Playnest\Playnest.exe` (or a zip of that folder) and publish.
+   Also attach `publish\Playnest\SHA256SUMS.txt` and paste its line into the notes, so anyone can check their download:
+   `Get-FileHash .\Playnest.exe -Algorithm SHA256` in PowerShell must print the same value.
 4. Copies of Playnest with "Check for updates" on will show "Playnest 1.0.1 is available" within a day. The repository must be public for others to see releases.
 
 The repository Playnest checks is set in `Services/Net/UpdateService.cs` (`Repository`).
@@ -137,3 +146,7 @@ tests/Playnest.Tests/  test runner
 ## Keyboard
 
 `Ctrl+F` search · `F5` scan · `Enter` play selected · `Esc` clear search / close details
+
+## License
+
+Playnest is open source under the [MIT License](LICENSE).

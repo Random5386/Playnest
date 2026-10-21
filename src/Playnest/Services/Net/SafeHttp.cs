@@ -12,7 +12,7 @@ namespace Playnest.Services.Net;
 /// <item>Redirects are followed manually (max 3) and each hop is checked again; downgrades to HTTP are refused.</item>
 /// <item>Responses are size-capped while reading (also protects against compressed "zip bombs").</item>
 /// <item>No cookies are stored or sent, and the SteamGridDB key is only ever sent to steamgriddb.com.</item>
-/// <item>Short timeouts and limited parallel connections.</item>
+/// <item>Short timeouts (including an overall deadline per download) and limited parallel connections.</item>
 /// </list>
 /// Callers still validate what they receive (images by their header, JSON by its structure).
 /// </summary>
@@ -21,6 +21,8 @@ public static class SafeHttp
     public const int MaxImageBytes = 15 * 1024 * 1024;
     public const int MaxJsonBytes = 4 * 1024 * 1024;
     private const int MaxRedirects = 3;
+    /// <summary>Deadline for a whole download, redirects and body included (tests shorten it).</summary>
+    internal static TimeSpan TotalTimeout { get; set; } = TimeSpan.FromSeconds(45);
 
     /// <summary>Hosts Playnest may contact. Sub-domains are allowed only for the entries starting with a dot.</summary>
     private static readonly string[] AllowedHosts =
@@ -77,6 +79,11 @@ public static class SafeHttp
     public static async Task<byte[]?> GetBytesAsync(string? url, int maxBytes, string? bearerToken = null, CancellationToken ct = default)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return null;
+        // HttpClient.Timeout stops once the headers arrive (ResponseHeadersRead), so the whole download,
+        // body included, gets its own deadline: a server trickling bytes can't hold a download slot forever.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(TotalTimeout);
+        ct = deadline.Token;
         try
         {
             for (int hop = 0; hop <= MaxRedirects; hop++)

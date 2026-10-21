@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Playnest.Models;
 using Playnest.Services.Platform;
 using Playnest.Services.Scanning;
@@ -8,16 +9,44 @@ namespace Playnest.Services;
 public enum UninstallOutcome { Started, OpenedStore, NoUninstaller, Failed }
 
 /// <summary>Starting games, opening folders and running uninstallers.</summary>
-public static class LaunchService
+public static partial class LaunchService
 {
+    /// <summary>The link <see cref="Launch"/> opens for this item, or null when it starts an exe instead.</summary>
+    public static string? LinkFor(GameEntry e)
+    {
+        // A user-chosen exe beats the store URI; otherwise stores launch through their client (keeps DRM/cloud saves happy).
+        var uri = string.IsNullOrWhiteSpace(e.CustomExePath) ? e.EffectiveUri : e.CustomLaunchUri;
+        return string.IsNullOrWhiteSpace(uri) ? null : uri;
+    }
+
+    // Link types that start a game through its store or a known launcher (plus web pages, which open in the browser).
+    private static readonly HashSet<string> KnownSchemes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "steam", "com.epicgames.launcher", "uplay", "amazon-games", "goggalaxy", "origin", "origin2", "battlenet",
+        "riotclient", "itch", "heroic", "playnite", "http", "https",
+    };
+
+    /// <summary>Xbox / Microsoft Store apps: shell:AppsFolder\&lt;package family name&gt;!&lt;app id&gt; and nothing else.</summary>
+    [GeneratedRegex(@"^shell:AppsFolder\\[A-Za-z0-9.\-]{3,50}_[0-9a-z]{13}![A-Za-z][A-Za-z0-9.]{0,63}$", RegexOptions.IgnoreCase)]
+    private static partial Regex AppsFolderLink();
+
+    /// <summary>
+    /// True for links that start a game through a store or launcher. Anything else (a file or network path, or another
+    /// program's link type) is "unusual" and, when the setting is on, needs the user's OK before it is opened.
+    /// </summary>
+    public static bool IsKnownLink(string link)
+    {
+        link = link.Trim();
+        if (link.StartsWith("shell:", StringComparison.OrdinalIgnoreCase)) return AppsFolderLink().IsMatch(link);
+        return Uri.TryCreate(link, UriKind.Absolute, out var u) && !u.IsFile && !u.IsUnc && KnownSchemes.Contains(u.Scheme);
+    }
+
     public static void Launch(GameEntry e)
     {
-        var uri = e.EffectiveUri;
+        var uri = LinkFor(e);
         var exe = e.EffectiveExe;
-        // A user-chosen exe beats the store URI; otherwise stores launch through their client (keeps DRM/cloud saves happy).
-        if (!string.IsNullOrWhiteSpace(e.CustomExePath)) uri = e.CustomLaunchUri;
 
-        if (!string.IsNullOrWhiteSpace(uri))
+        if (uri is not null)
         {
             if (uri.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
                 Start(new ProcessStartInfo("explorer.exe", uri) { UseShellExecute = true });
@@ -115,6 +144,9 @@ public sealed class SessionTracker : IDisposable
     private int _periodMs;
     private bool _watchAll;
     private int _indexVersion;
+    // Exe names per install folder (PathUtil.Key). Folder contents rarely change between scans, so library edits
+    // (rename, favourite, remove…) rebuild the index without walking every game folder on disk again.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string[]> _exeNameCache = new();
     private static readonly TimeSpan StartTimeout = TimeSpan.FromMinutes(4);
 
     // Exe names that say nothing about which game is running.
@@ -148,6 +180,12 @@ public sealed class SessionTracker : IDisposable
         Reschedule();
     }
 
+    /// <summary>Forgets the remembered exe names so the next index rebuild reads every folder again (call after a scan).</summary>
+    public void ForgetFolderContents() => _exeNameCache.Clear();
+
+    private string[] CachedExeNames(string dir) =>
+        _exeNameCache.GetOrAdd(PathUtil.Key(dir), _ => ExeNames(dir).ToArray());
+
     /// <summary>Rebuilds the exe-name index in the background (call after the library changes).</summary>
     public void UpdateIndex(IReadOnlyList<GameEntry> games)
     {
@@ -161,7 +199,7 @@ public sealed class SessionTracker : IDisposable
             var index = new Dictionary<string, List<(GameEntry, string)>>(StringComparer.OrdinalIgnoreCase);
             foreach (var (game, dir) in snapshot)
             {
-                foreach (var name in ExeNames(dir))
+                foreach (var name in CachedExeNames(dir))
                 {
                     if (!index.TryGetValue(name, out var list)) index[name] = list = new();
                     if (!list.Any(x => x.Item1 == game)) list.Add((game, dir));
@@ -224,7 +262,9 @@ public sealed class SessionTracker : IDisposable
         // Make sure the launched game is matchable even if the index hasn't been built yet (off the UI thread).
         Task.Run(() =>
         {
-            var names = ExeNames(dir).Take(100).ToList();
+            var all = ExeNames(dir).ToArray(); // read fresh: the game may have been patched since the last scan
+            _exeNameCache[PathUtil.Key(dir)] = all;
+            var names = all.Take(100).ToList();
             lock (_gate)
             {
                 var copy = new Dictionary<string, List<(GameEntry Game, string Dir)>>(_index, StringComparer.OrdinalIgnoreCase);

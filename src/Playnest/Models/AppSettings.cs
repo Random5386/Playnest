@@ -59,6 +59,8 @@ public sealed class AppSettings
     public bool FreeMemoryWhileGaming { get; set; } = true;
     /// <summary>Also count playtime for games started outside Playnest (Steam, desktop shortcuts…).</summary>
     public bool TrackExternalPlaytime { get; set; } = true;
+    /// <summary>Ask once before opening a launch link that isn't a known store link (e.g. a file path or another app's link).</summary>
+    public bool ConfirmUnusualLaunchLinks { get; set; } = true;
 
     // ---------- Scanning ----------
     public bool ScanOnStartup { get; set; } = true;

@@ -1,7 +1,8 @@
 <Project>
   <PropertyGroup>
-    <!-- Package versions in one place -->
-    <AvaloniaVersion>11.3.*</AvaloniaVersion>
-    <MvvmVersion>8.4.*</MvvmVersion>
+    <!-- Package versions in one place. Exact versions (no wildcards), so every build uses the same packages;
+         raise them here deliberately after checking the release notes. -->
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+    <MvvmVersion>8.4.2</MvvmVersion>
   </PropertyGroup>
 </Project>

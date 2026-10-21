@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Playnest.Models;
 using Playnest.Services;
 using Playnest.Services.Artwork;
+using Playnest.Services.Platform;
 
 namespace Playnest.ViewModels;
 
@@ -50,6 +51,19 @@ public sealed partial class GameViewModel : ObservableObject
 
     public string Name => Entry.DisplayName;
     public string SortName => Name.StartsWith("The ", StringComparison.OrdinalIgnoreCase) ? Name[4..] : Name;
+
+    private string? _searchKeyFor, _searchKey;
+    /// <summary>Normalised name for search, worked out once per name instead of on every keystroke.</summary>
+    public string SearchKey
+    {
+        get
+        {
+            var name = Name;
+            if (!ReferenceEquals(name, _searchKeyFor)) { _searchKey = PathUtil.NormalizeName(name); _searchKeyFor = name; }
+            return _searchKey!;
+        }
+    }
+
     public ItemKind Kind => Entry.EffectiveKind;
     public string SourceLabel => GameSourceInfo.Badge(Entry.Source);
     public string SourceFull => GameSourceInfo.DisplayName(Entry.Source);
@@ -163,7 +177,8 @@ public sealed partial class GameViewModel : ObservableObject
         Bitmap? bmp = null;
         try
         {
-            var path = await _host.Artwork.GetAsync(Entry, kind, force).ConfigureAwait(false);
+            // Off the UI thread: finding the cached file and reading its header touch the disk for every tile shown.
+            var path = await Task.Run(() => _host.Artwork.GetAsync(Entry, kind, force)).ConfigureAwait(false);
             if (path is not null)
             {
                 if (force) ImageCache.Invalidate(path);

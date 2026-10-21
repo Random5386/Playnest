@@ -167,6 +167,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public bool TrackExternalPlaytime { get => S.TrackExternalPlaytime; set { if (Set(S.TrackExternalPlaytime, value, v => S.TrackExternalPlaytime = v)) _main.ApplyPlaytimeSettings(); } }
     public bool ImportSteamPlaytime { get => S.ImportSteamPlaytime; set => Set(S.ImportSteamPlaytime, value, v => S.ImportSteamPlaytime = v); }
     public bool FreeMemoryWhileGaming { get => S.FreeMemoryWhileGaming; set => Set(S.FreeMemoryWhileGaming, value, v => S.FreeMemoryWhileGaming = v); }
+    public bool ConfirmUnusualLaunchLinks { get => S.ConfirmUnusualLaunchLinks; set => Set(S.ConfirmUnusualLaunchLinks, value, v => S.ConfirmUnusualLaunchLinks = v); }
 
     public bool StartWithWindows
     {
@@ -423,7 +424,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var p = await _main.Ui.PickFile("Import settings", "JSON", ["*.json"]);
         if (p is null) return;
-        var imported = Storage.ImportSettings(await File.ReadAllTextAsync(p));
+        AppSettings? imported;
+        try { imported = Storage.ImportSettings(await File.ReadAllTextAsync(p)); }
+        catch (Exception ex) { _main.ShowToast("Import failed: " + ex.Message, error: true); return; }
         if (imported is null) { _main.ShowToast("That file isn't a Playnest settings file.", error: true); return; }
         // Copy every public property so the existing object (shared by the app) is updated in place.
         foreach (var prop in SettingsProperties)
@@ -474,6 +477,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         (s => s.QuickPlay, (s, v) => s.QuickPlay = (QuickPlayMode)v!),
         (s => s.CheckForUpdates, (s, v) => s.CheckForUpdates = (bool)v!),
         (s => s.OnGameLaunch, (s, v) => s.OnGameLaunch = (LaunchBehavior)v!), (s => s.RestoreAfterGameExit, (s, v) => s.RestoreAfterGameExit = (bool)v!),
+        (s => s.ConfirmUnusualLaunchLinks, (s, v) => s.ConfirmUnusualLaunchLinks = (bool)v!),
         (s => s.CloseToTray, (s, v) => s.CloseToTray = (bool)v!), (s => s.StartMinimized, (s, v) => s.StartMinimized = (bool)v!),
         (s => s.TrackPlaytime, (s, v) => s.TrackPlaytime = (bool)v!), (s => s.ImportSteamPlaytime, (s, v) => s.ImportSteamPlaytime = (bool)v!),
         (s => s.FreeMemoryWhileGaming, (s, v) => s.FreeMemoryWhileGaming = (bool)v!), (s => s.ScanOnStartup, (s, v) => s.ScanOnStartup = (bool)v!),

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Playnest.Models;
 using Playnest.Services.Platform;
@@ -10,7 +11,7 @@ namespace Playnest.Services.Scanning;
 /// Xbox app / PC Game Pass games. These live in folders such as "C:\XboxGames\&lt;Game&gt;\Content" and each one has a
 /// MicrosoftGame.config describing it. The folder roots are read from the hidden ".GamingRoot" file on every drive.
 /// </summary>
-public sealed class XboxScanner : IGameScanner
+public sealed partial class XboxScanner : IGameScanner
 {
     public GameSource Source => GameSource.Xbox;
     public bool IsEnabled(AppSettings s) => s.ScanXbox;
@@ -119,7 +120,8 @@ public sealed class XboxScanner : IGameScanner
                 return null;
             }
             string? uri = null;
-            if (publisher is not null && appId is not null)
+            // The link is passed to explorer.exe, so only names that follow the package naming rules are used.
+            if (publisher is not null && appId is not null && PackageNameRegex().IsMatch(identity) && AppIdRegex().IsMatch(appId))
                 uri = $@"shell:AppsFolder\{identity}_{PublisherId(publisher)}!{appId}";
 
             ctx.Claim(content);
@@ -164,6 +166,14 @@ public sealed class XboxScanner : IGameScanner
         }
         return sb.ToString();
     }
+
+    /// <summary>Package identity names: letters, digits, '.' and '-' (3–50 characters).</summary>
+    [GeneratedRegex(@"^[A-Za-z0-9.\-]{3,50}$")]
+    internal static partial Regex PackageNameRegex();
+
+    /// <summary>Application ids: a letter, then letters, digits and '.' (at most 64 characters).</summary>
+    [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9.]{0,63}$")]
+    internal static partial Regex AppIdRegex();
 
     internal static IEnumerable<string> SafeDrives()
     {

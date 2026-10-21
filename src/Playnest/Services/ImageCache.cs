@@ -27,6 +27,9 @@ public static class ImageCache
     private static readonly LinkedList<Entry> UnusedList = new();
     private static int _keepUnused = 48;
     private static readonly SemaphoreSlim DecodeGate = new(2);
+    // Image widths read from file headers (with the file's write time, in case it is replaced), so a tile
+    // scrolled back into view doesn't open and read the file again.
+    private static readonly Dictionary<string, (DateTime Written, int Width)> SourceWidths = new();
 
     /// <summary>How many currently unused bitmaps are kept for instant reuse (e.g. when scrolling back).</summary>
     public static void SetCapacity(int capacity)
@@ -44,7 +47,8 @@ public static class ImageCache
         // Round sizes so small slider moves reuse the same decoded bitmap.
         decodeWidth = Math.Clamp((decodeWidth + 31) / 32 * 32, 32, 1600);
         // Never decode larger than the source: upscaling in memory only costs RAM (the UI scales smoothly anyway).
-        if (Artwork.ImageInfo.SizeOfFile(path) is { Width: > 0 } src && src.Width < decodeWidth) decodeWidth = src.Width;
+        int srcWidth = SourceWidth(path);
+        if (srcWidth > 0 && srcWidth < decodeWidth) decodeWidth = srcWidth;
         var key = path + "|" + decodeWidth;
 
         lock (Gate)
@@ -126,11 +130,29 @@ public static class ImageCache
         }
     }
 
+    private static int SourceWidth(string path)
+    {
+        DateTime written;
+        try { written = File.GetLastWriteTimeUtc(path); } catch { return 0; }
+        lock (Gate)
+        {
+            if (SourceWidths.TryGetValue(path, out var c) && c.Written == written) return c.Width;
+        }
+        int width = Artwork.ImageInfo.SizeOfFile(path)?.Width ?? 0;
+        lock (Gate)
+        {
+            if (SourceWidths.Count > 4096) SourceWidths.Clear();
+            SourceWidths[path] = (written, width);
+        }
+        return width;
+    }
+
     /// <summary>Forgets every decoded version of a file (after its artwork changed).</summary>
     public static void Invalidate(string path)
     {
         lock (Gate)
         {
+            SourceWidths.Remove(path);
             foreach (var e in ByKey.Values.Where(e => e.Path == path).ToList())
             {
                 e.Stale = true;
