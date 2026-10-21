@@ -48,22 +48,32 @@ public partial class MainWindow : Window, IUiService
 
     // ------------------------------------------------------------------ window behaviour
 
+    /// <summary>True once the window has really closed (it can't be shown again after that).</summary>
+    public bool IsClosed { get; private set; }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
         if (_vm is null) return;
         RememberBounds();
-        if (_vm.Settings.CloseToTray && !e.IsProgrammatic)
-        {
-            e.Cancel = true;
-            HideToTray();
-            return;
-        }
-        if (!e.IsProgrammatic)
-        {
-            e.Cancel = true;
-            _shutdown?.Invoke();
-        }
+        // Playnest itself is exiting (tray → Exit, Windows signing out…): let the window close.
+        if (e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown) return;
+
+        // Anything else is the user closing the window. Note: the title bar's X button calls Close() from code, so
+        // e.IsProgrammatic is true for it too and can't be used here. The window is never really closed while
+        // Playnest keeps running, because a closed window can't be shown again.
+        e.Cancel = true;
+        if (_vm.Settings.CloseToTray) HideToTray();
+        else _shutdown?.Invoke();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        IsClosed = true;
+        // If the window ever closes without Playnest exiting (e.g. Windows closed it for a sign-out that was then
+        // cancelled), exit cleanly instead of staying in the tray with nothing to show.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => _shutdown?.Invoke());
     }
 
     private void RememberBounds()

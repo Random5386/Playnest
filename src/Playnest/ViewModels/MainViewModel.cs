@@ -25,7 +25,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     private Timer? _settingsSaveTimer;
     private List<GameViewModel> _filtered = new();
     private int _columns = 1;
-    private bool _pendingPrune;
+    private GameEntry? _pendingPrune; // the game whose uninstaller was started, until it's confirmed gone
     private bool _hiddenForGame;
 
     public MainViewModel(AppSettings settings, IUiService ui)
@@ -254,6 +254,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
                 if (!ReferenceEquals(vm.Entry, e))
                 {
                     _imageOrder.Remove(vm);
+                    _imageLoadedAt.Remove(vm);
                     vm.ReleaseImages();
                     _vms[e.Id] = new GameViewModel(e, this);
                 }
@@ -264,6 +265,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         foreach (var gone in _vms.Keys.Where(k => !ids.Contains(k)).ToList())
         {
             _imageOrder.Remove(_vms[gone]);
+            _imageLoadedAt.Remove(_vms[gone]);
             _vms[gone].ReleaseImages();
             _vms.Remove(gone);
         }
@@ -724,7 +726,9 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
             e.ExePath = string.IsNullOrWhiteSpace(vm.ExePath) ? null : vm.ExePath.Trim();
             e.Arguments = string.IsNullOrWhiteSpace(vm.Arguments) ? null : vm.Arguments;
             e.LaunchUri = string.IsNullOrWhiteSpace(vm.LaunchUri) ? null : vm.LaunchUri.Trim();
-            if (e.ExePath is not null) e.InstallDir ??= Path.GetDirectoryName(e.ExePath);
+            // The folder follows the exe: Open folder, Force stop and uninstall all use it.
+            if (e.ExePath is not null && (e.InstallDir is null || !PathUtil.IsUnder(e.ExePath, e.InstallDir)))
+                e.InstallDir = Path.GetDirectoryName(e.ExePath);
         }
         else
         {
@@ -732,7 +736,9 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
             e.CustomArguments = vm.Arguments == (e.Arguments ?? "") ? null : vm.Arguments;
             e.CustomLaunchUri = Diff(vm.LaunchUri, e.LaunchUri);
         }
-        e.WorkingDir = string.IsNullOrWhiteSpace(vm.WorkingDir) ? null : vm.WorkingDir.Trim();
+        var workDir = string.IsNullOrWhiteSpace(vm.WorkingDir) ? null : vm.WorkingDir.Trim();
+        if (e.IsManual) e.WorkingDir = workDir;
+        else e.CustomWorkingDir = workDir == e.WorkingDir ? null : workDir; // detected games: kept across rescans
         e.RunAsAdmin = vm.RunAsAdmin;
         e.CustomCover = ImportCustomImage(e, vm.CoverPath, "cover", e.CustomCover);
         e.CustomIcon = ImportCustomImage(e, vm.IconPath, "icon", e.CustomIcon);
@@ -863,7 +869,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
                 return;
         }
 
-        _pendingPrune = true;
+        _pendingPrune = e;
         if (process is not null)
         {
             try
@@ -880,17 +886,18 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     /// <summary>Called when the window becomes active again (e.g. after the store's uninstall dialog).</summary>
     public void OnWindowActivated()
     {
-        if (_pendingPrune) PruneAfterUninstall();
+        if (_pendingPrune is not null) PruneAfterUninstall();
     }
 
     private void PruneAfterUninstall()
     {
-        var gone = Library.PruneMissing();
-        if (gone.Count == 0) return;
-        _pendingPrune = false;
+        if (_pendingPrune is not { } e) return;
+        if (!Library.Data.Items.Contains(e)) { _pendingPrune = null; return; } // removed some other way
+        if (!Library.PruneIfUninstalled(e)) return; // still installed (uninstall cancelled or still running)
+        _pendingPrune = null;
         SyncViewModels();
         Rebuild();
-        ShowToast(gone.Count == 1 ? $"{gone[0].DisplayName} was uninstalled." : $"{gone.Count} items were uninstalled.");
+        ShowToast($"{e.DisplayName} was uninstalled.");
     }
 
     // ------------------------------------------------------------------ adding
@@ -907,6 +914,12 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
             ["*.exe", "*.lnk", "*.url", "*.bat", "*.cmd"]);
         if (p is null) return;
         var entry = LibraryService.CreateManual(p, kind);
+        if (string.IsNullOrWhiteSpace(entry.ExePath) && string.IsNullOrWhiteSpace(entry.LaunchUri))
+        {
+            // e.g. a shortcut to "This PC" or a folder: there's nothing Playnest could start.
+            ShowToast($"{Path.GetFileName(p)} doesn't point to a program or game, so it can't be added.", error: true);
+            return;
+        }
         var vm = new EditGameViewModel(entry, Ui, isNew: true);
         if (!await Ui.EditGame(vm)) return;
         ApplyEdit(entry, vm);
@@ -936,12 +949,18 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     {
         _imageOrder.Remove(g);
         _imageOrder.AddLast(g);
-        int budget = Settings.LowMemoryMode ? 60 : 120; // a full screen of tiles is ~30–60
+        long now = Environment.TickCount64;
+        _imageLoadedAt[g] = now;
+        // Never below what fits on screen (with room for scrolling), or visible tiles would keep evicting each other.
+        int budget = Math.Max(Settings.LowMemoryMode ? 60 : 120, VisibleTileEstimate() * 2);
         while (_imageOrder.Count > budget)
         {
             var oldest = _imageOrder.First!.Value;
+            // Everything left was loaded in the last few seconds (still on screen): stop evicting for now.
+            if (_imageLoadedAt.TryGetValue(oldest, out var at) && now - at < 3000) break;
             _imageOrder.RemoveFirst();
             if (oldest == SelectedGame) { _imageOrder.AddLast(oldest); continue; }
+            _imageLoadedAt.Remove(oldest);
             oldest.ReleaseImages(); // bitmaps are disposed (or kept briefly for reuse) by ImageCache
             _releasedSinceIdle++;
         }
@@ -960,12 +979,27 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         }
     }
 
+    private readonly Dictionary<GameViewModel, long> _imageLoadedAt = new();
+
+    /// <summary>Height of the library's scroll area (set by the view).</summary>
+    public double ViewportHeight { get; set; } = 800;
+
+    /// <summary>Roughly how many tiles fit on screen at once in the current view.</summary>
+    private int VisibleTileEstimate()
+    {
+        double h = Math.Max(200, ViewportHeight);
+        if (IsListView) return (int)(h / 40) + 10;
+        double rowHeight = IsCoverView ? Settings.CoverWidth * 1.5 + 50 : Settings.IconSize + 80;
+        return ComputeColumns() * ((int)(h / Math.Max(60, rowHeight)) + 3);
+    }
+
     /// <summary>Frees decoded images and trims RAM (window hidden / game running).</summary>
     public void SuspendImages()
     {
         ImagesSuspended = true;
         foreach (var vm in _vms.Values) vm.ReleaseImages();
         _imageOrder.Clear();
+        _imageLoadedAt.Clear();
         ImageCache.ReleaseAll();
         DispatcherTimer.RunOnce(Native.TrimWorkingSet, TimeSpan.FromMilliseconds(300));
     }

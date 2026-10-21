@@ -89,7 +89,7 @@ public sealed partial class EditGameViewModel : ObservableObject
         KindIndex = (int)e.EffectiveKind;
         ExePath = e.EffectiveExe ?? "";
         Arguments = e.EffectiveArgs ?? "";
-        WorkingDir = e.WorkingDir ?? "";
+        WorkingDir = e.EffectiveWorkingDir ?? "";
         LaunchUri = e.EffectiveUri ?? "";
         RunAsAdmin = e.RunAsAdmin;
         CoverPath = e.CustomCover ?? "";

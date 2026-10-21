@@ -62,7 +62,7 @@ public static partial class LaunchService
         {
             UseShellExecute = true,
             Arguments = e.EffectiveArgs ?? "",
-            WorkingDirectory = !string.IsNullOrWhiteSpace(e.WorkingDir) && Directory.Exists(e.WorkingDir) ? e.WorkingDir : Path.GetDirectoryName(exe)!,
+            WorkingDirectory = e.EffectiveWorkingDir is { Length: > 0 } wd && Directory.Exists(wd) ? wd : Path.GetDirectoryName(exe)!,
         };
         if (e.RunAsAdmin) psi.Verb = "runas";
         Start(psi);

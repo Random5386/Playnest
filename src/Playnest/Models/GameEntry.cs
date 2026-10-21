@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Playnest.Models;
 
 /// <summary>What an item in the library is. Plain apps are never added.</summary>
@@ -110,6 +112,8 @@ public sealed class GameEntry
     public string? CustomExePath { get; set; }
     public string? CustomArguments { get; set; }
     public string? CustomLaunchUri { get; set; }
+    /// <summary>Working folder chosen by the user for a detected game (rescans don't overwrite it).</summary>
+    public string? CustomWorkingDir { get; set; }
     public ItemKind? CustomKind { get; set; }
     public string? CustomCover { get; set; }
     public string? CustomIcon { get; set; }
@@ -135,14 +139,23 @@ public sealed class GameEntry
     /// <summary>Steam app id found by name lookup for artwork only (0 = not looked up, -1 = no match).</summary>
     public long ArtSteamAppId { get; set; }
 
+    [JsonIgnore] // worked out from the fields above; not stored
     public string DisplayName => string.IsNullOrWhiteSpace(CustomName) ? Name : CustomName!;
+    [JsonIgnore]
     public ItemKind EffectiveKind => CustomKind ?? Kind;
+    [JsonIgnore]
     public string? EffectiveExe => string.IsNullOrWhiteSpace(CustomExePath) ? ExePath : CustomExePath;
+    [JsonIgnore]
+    public string? EffectiveWorkingDir => string.IsNullOrWhiteSpace(CustomWorkingDir) ? WorkingDir : CustomWorkingDir;
+    [JsonIgnore]
     public string? EffectiveArgs => CustomArguments ?? Arguments;
+    [JsonIgnore]
     public string? EffectiveUri => string.IsNullOrWhiteSpace(CustomLaunchUri) ? LaunchUri : CustomLaunchUri;
+    [JsonIgnore]
     public long TotalPlaytimeSeconds => Math.Max(PlaytimeSeconds, ImportedPlaytimeSeconds);
 
     /// <summary>Folder used for "Open folder", playtime tracking and icon lookup.</summary>
+    [JsonIgnore]
     public string? EffectiveDir
     {
         get

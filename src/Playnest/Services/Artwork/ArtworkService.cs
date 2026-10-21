@@ -52,7 +52,8 @@ public sealed partial class ArtworkService
     public Task<string?> GetAsync(GameEntry e, ArtKind kind, bool force = false)
     {
         if (!force && Cached(e, kind) is { } c) return Task.FromResult<string?>(c);
-        var key = e.Id + "|" + kind;
+        // A forced refresh gets its own slot, so it isn't swallowed by a normal lookup that's already running.
+        var key = e.Id + "|" + kind + (force ? "|refresh" : "");
         // Lazy makes sure only one task is ever created per key, and the entry is removed only after it finished.
         var lazy = _inflight.GetOrAdd(key, _ => new Lazy<Task<string?>>(() => Task.Run(async () =>
         {

@@ -378,6 +378,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         IsCheckingUpdate = true;
         UpdateStatusText = "Checking…";
         try { ShowUpdateResult(await _main.CheckForUpdatesAsync(manual: true)); }
+        catch (Exception ex)
+        {
+            Log.Error("update check", ex);
+            ShowUpdateResult(new UpdateResult(UpdateStatus.Failed));
+        }
         finally { IsCheckingUpdate = false; }
     }
 
@@ -436,6 +441,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         ThemeService.Apply(S);
         _main.Ui.ApplyWindowSettings();
         _main.OnLayoutSettingsChanged();
+        _main.ApplyPlaytimeSettings();
+        ApplyStartup(S);
         foreach (var p2 in typeof(SettingsViewModel).GetProperties().Select(x => x.Name)) OnPropertyChanged(p2);
         _main.ShowToast("Settings imported.");
     }
@@ -451,6 +458,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         ThemeService.Apply(S);
         _main.Ui.ApplyWindowSettings();
         _main.OnLayoutSettingsChanged();
+        _main.ApplyPlaytimeSettings();
+        ApplyStartup(S);
         foreach (var p2 in typeof(SettingsViewModel).GetProperties().Select(x => x.Name)) OnPropertyChanged(p2);
         _main.ShowToast("Settings reset.");
     }

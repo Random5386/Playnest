@@ -41,6 +41,13 @@ public static class GameProcesses
         "rockstar games", "amazon games", "program files", "program files (x86)", "programdata", "users",
     };
 
+    /// <summary>Common shared user folders (also when they sit somewhere other than the profile, e.g. inside OneDrive or on D:).</summary>
+    private static readonly HashSet<string> UserLibraryFolderNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "downloads", "desktop", "documents", "my documents", "pictures", "music", "videos", "onedrive", "saved games",
+        "dropbox", "google drive", "icloud drive", "temp", "tmp",
+    };
+
     /// <summary>Store client exes: a folder that contains one of these is a launcher's folder, not a game's.</summary>
     private static readonly string[] ClientExes =
     [
@@ -67,6 +74,9 @@ public static class GameProcesses
                      Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.ApplicationData,
                      Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolder.Desktop,
                      Environment.SpecialFolder.MyDocuments, Environment.SpecialFolder.CommonProgramFiles,
+                     Environment.SpecialFolder.MyPictures, Environment.SpecialFolder.MyMusic, Environment.SpecialFolder.MyVideos,
+                     Environment.SpecialFolder.DesktopDirectory, Environment.SpecialFolder.CommonDesktopDirectory,
+                     Environment.SpecialFolder.CommonDocuments, Environment.SpecialFolder.StartMenu,
                  })
         {
             string path;
@@ -77,6 +87,13 @@ public static class GameProcesses
             // Nothing inside Windows' own folders is a game.
             if (special is Environment.SpecialFolder.Windows or Environment.SpecialFolder.System && PathUtil.IsUnder(full, path)) return false;
         }
+
+        // The user's own top-level folders (Downloads, Desktop, Documents, OneDrive, Saved Games…) hold many
+        // unrelated things, so they're never treated as one game's folder, even if a game exe was added from there.
+        string profile = "";
+        try { profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile); } catch { }
+        if (profile.Length > 0 && Path.GetDirectoryName(full) is { } parent && PathUtil.Key(parent) == PathUtil.Key(profile)) return false;
+        if (UserLibraryFolderNames.Contains(Path.GetFileName(full))) return false;
 
         // Playnest itself must never be inside the folder.
         if (PathUtil.IsUnder(AppContext.BaseDirectory, full)) return false;

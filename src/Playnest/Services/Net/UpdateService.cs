@@ -57,14 +57,15 @@ public static partial class UpdateService
             if (root.ValueKind != JsonValueKind.Object) return new UpdateResult(UpdateStatus.Failed);
             if (Bool(root, "draft") || Bool(root, "prerelease")) return new UpdateResult(UpdateStatus.UpToDate);
 
-            var version = ParseTag(Str(root, "tag_name"));
+            var tag = Str(root, "tag_name");
+            var version = ParseTag(tag);
             if (version is null) return new UpdateResult(UpdateStatus.Failed);
             if (version <= Normalize(current)) return new UpdateResult(UpdateStatus.UpToDate);
 
             var title = PlainText(Str(root, "name"), 100);
             if (string.IsNullOrWhiteSpace(title)) title = "Playnest " + Display(version);
             var notes = TidyMarkdown(PlainText(Str(root, "body"), MaxNotesLength));
-            return new UpdateResult(UpdateStatus.Available, new UpdateInfo(version, title, notes, PageFor(version)));
+            return new UpdateResult(UpdateStatus.Available, new UpdateInfo(version, title, notes, PageForTag(tag!)));
         }
         catch (JsonException)
         {
@@ -84,6 +85,13 @@ public static partial class UpdateService
 
     /// <summary>The release page, built only from trusted parts (the fixed repository and a parsed version).</summary>
     public static string PageFor(Version v) => $"https://github.com/{Repository}/releases/tag/v{Display(v)}";
+
+    /// <summary>
+    /// The page of the release whose tag is <paramref name="tag"/>, exactly as tagged ("v1.2.0" or "1.2.0").
+    /// Only called with a tag that <see cref="ParseTag"/> accepted, so it can only contain a "v", digits and dots.
+    /// </summary>
+    public static string PageForTag(string tag) =>
+        ParseTag(tag) is not null ? $"https://github.com/{Repository}/releases/tag/{tag}" : $"https://github.com/{Repository}/releases/latest";
 
     public static string Display(Version v) => v.Revision > 0 ? v.ToString(4) : v.ToString(3);
 

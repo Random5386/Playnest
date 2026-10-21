@@ -120,7 +120,8 @@ public partial class App : Application
 
     public void ShowMainWindow()
     {
-        if (_window is null) return;
+        if (_window is null || _exiting) return;
+        if (_window.IsClosed) { Shutdown(); return; } // can't be re-shown; never crash on a tray click
         if (_desktop is not null) _desktop.MainWindow ??= _window;
         _vm?.ResumeImages();
         if (!_window.IsVisible) _window.Show();
@@ -130,8 +131,12 @@ public partial class App : Application
         _window.Topmost = false;
     }
 
+    private bool _exiting;
+
     private void Shutdown()
     {
+        if (_exiting) return;
+        _exiting = true;
         _vm?.FlushOnExit();
         _desktop?.Shutdown();
     }

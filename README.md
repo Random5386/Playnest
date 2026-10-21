@@ -68,7 +68,7 @@ On your PC:
 - **Launch links:** values read from store records are escaped or validated before they go into a launch link or command line.
   A link that isn't a known store link (for example a file path, a network share or another program's link type, as an imported `.url` file can contain)
   is opened only after you agree, once per game. This can be turned off in Settings → Behaviour.
-- **Uninstalls:** they always ask first and show the exact command that will run. When a game has no uninstaller, its folder can be moved to the Recycle Bin, but only if the folder belongs to that game alone (never a drive, a library folder such as `D:\Games`, or Program Files), and Windows warns before deleting anything too big for the Recycle Bin.
+- **Uninstalls:** they always ask first and show the exact command that will run. When a game has no uninstaller, its folder can be moved to the Recycle Bin, but only if the folder belongs to that game alone (never a drive, a library folder such as `D:\Games`, Program Files, or your Downloads, Desktop, Documents or OneDrive folders), and Windows warns before deleting anything too big for the Recycle Bin.
 - **Exported settings:** these never include your SteamGridDB key.
 - **No direct Windows API calls:** the app uses only standard .NET APIs.
 
@@ -121,6 +121,10 @@ The repository Playnest checks is set in `Services/Net/UpdateService.cs` (`Repos
 ## Where data is stored
 
 `%LOCALAPPDATA%\Playnest\` holds `settings.json`, `library.json`, the artwork cache and `playnest.log`.
+Saves are written safely (a power cut can't leave a half-written file) and the previous version is kept as `library.json.bak` /
+`settings.json.bak`; a damaged `library.json` is restored from the backup automatically.
+Games on a drive that isn't connected (an external disk, a network share) stay in your library, with their playtime and
+settings, until the drive is back.
 Put an empty `portable.txt` next to `Playnest.exe` to keep everything in a `Data` folder beside the exe instead.
 
 ## Project layout

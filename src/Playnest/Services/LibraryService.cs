@@ -25,16 +25,22 @@ public sealed class LibraryService
         }
     }
 
+    private readonly object _writeLock = new();
+
     public void SaveNow()
     {
-        LibraryData snapshot;
-        lock (_gate)
+        // Snapshot and write together, so a timer save that started earlier can't land after a newer one.
+        lock (_writeLock)
         {
-            _saveTimer?.Dispose();
-            _saveTimer = null;
-            snapshot = new LibraryData { Version = Data.Version, Items = Data.Items.ToList(), Ignored = Data.Ignored.ToList() };
+            LibraryData snapshot;
+            lock (_gate)
+            {
+                _saveTimer?.Dispose();
+                _saveTimer = null;
+                snapshot = new LibraryData { Version = Data.Version, Items = Data.Items.ToList(), Ignored = Data.Ignored.ToList() };
+            }
+            Storage.SaveLibrary(snapshot);
         }
-        Storage.SaveLibrary(snapshot);
     }
 
     public bool IsIgnored(GameEntry e) =>
@@ -76,11 +82,24 @@ public sealed class LibraryService
             }
 
             var disabled = DisabledSources(settings);
+            var driveCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             removed = Data.Items.RemoveAll(i =>
-                !i.IsManual && !seen.Contains(i.Id) &&
-                (scan.CompletedSources.Contains(i.Source) || disabled.Contains(i.Source) ||
-                 (i.Source == GameSource.System && i.Kind == ItemKind.Launcher && !settings.DetectLaunchers) ||
-                 (i.Source == GameSource.System && i.Kind == ItemKind.Tool && !settings.DetectTools)));
+            {
+                if (i.IsManual || seen.Contains(i.Id)) return false;
+                bool gone = scan.CompletedSources.Contains(i.Source) || disabled.Contains(i.Source) ||
+                            (i.Source == GameSource.System && i.Kind == ItemKind.Launcher && !settings.DetectLaunchers) ||
+                            (i.Source == GameSource.System && i.Kind == ItemKind.Tool && !settings.DetectTools);
+                if (!gone) return false;
+                // A game on a drive that isn't connected right now (external disk, network share, Steam library on
+                // another drive) wasn't uninstalled: keep it, with its playtime, favourite and custom settings, and
+                // mark it unavailable. Only a source the user switched off removes it regardless.
+                if (!disabled.Contains(i.Source) && IsOnUnavailableDrive(i.InstallDir, driveCache))
+                {
+                    i.Missing = true;
+                    return false;
+                }
+                return true;
+            });
 
             foreach (var m in Data.Items.Where(i => i.IsManual))
                 m.Missing = !ManualTargetExists(m);
@@ -105,6 +124,20 @@ public sealed class LibraryService
         if (!s.ScanAmazon) set.Add(GameSource.Amazon);
         if (!s.ScanInstalledPrograms) set.Add(GameSource.Registry);
         return set;
+    }
+
+    /// <summary>True when the folder's drive (or network share) isn't available at the moment.</summary>
+    internal static bool IsOnUnavailableDrive(string? dir, Dictionary<string, bool>? cache = null)
+    {
+        if (string.IsNullOrWhiteSpace(dir)) return false;
+        string? root;
+        try { root = Path.GetPathRoot(Path.GetFullPath(dir)); } catch { return false; }
+        if (string.IsNullOrEmpty(root)) return false;
+        if (cache is not null && cache.TryGetValue(root, out var known)) return known;
+        bool unavailable;
+        try { unavailable = !Directory.Exists(root); } catch { unavailable = true; }
+        if (cache is not null) cache[root] = unavailable;
+        return unavailable;
     }
 
     private static bool ManualTargetExists(GameEntry e)
@@ -150,15 +183,19 @@ public sealed class LibraryService
         SaveSoon();
     }
 
-    /// <summary>Quick check (no scanning) that auto-detected items still exist on disk — used after an uninstall.</summary>
-    public List<GameEntry> PruneMissing()
+    /// <summary>
+    /// After an uninstall: removes that one game if its folder is gone. Other games are never touched here
+    /// (a game whose drive happens to be unplugged must not be dropped).
+    /// </summary>
+    public bool PruneIfUninstalled(GameEntry e)
     {
         lock (_gate)
         {
-            var gone = Data.Items.Where(i => !i.IsManual && i.InstallDir is not null && !Directory.Exists(i.InstallDir)).ToList();
-            foreach (var g in gone) Data.Items.Remove(g);
-            if (gone.Count > 0) SaveSoon();
-            return gone;
+            if (e.IsManual || e.InstallDir is null || !Data.Items.Contains(e)) return false;
+            if (IsOnUnavailableDrive(e.InstallDir) || Directory.Exists(e.InstallDir)) return false;
+            Data.Items.Remove(e);
+            SaveSoon();
+            return true;
         }
     }
 

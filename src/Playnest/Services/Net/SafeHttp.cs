@@ -118,8 +118,9 @@ public static class SafeHttp
             }
             return null; // too many redirects
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or OperationCanceledException or InvalidOperationException)
+        catch (Exception)
         {
+            // Network errors, timeouts, broken compressed data (InvalidDataException)…: a failed download is never fatal.
             return null;
         }
     }

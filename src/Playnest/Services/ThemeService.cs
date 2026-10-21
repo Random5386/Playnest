@@ -37,7 +37,16 @@ public static class ThemeService
         r["SystemAccentColorDark3"] = Shift(accent, -0.45);
         r["AccentBrush"] = new SolidColorBrush(accent);
         r["AccentSoftBrush"] = new SolidColorBrush(Color.FromArgb(0x33, accent.R, accent.G, accent.B));
-        r["AccentForegroundBrush"] = new SolidColorBrush(Luminance(accent) > 0.6 ? Colors.Black : Colors.White);
+        var onAccent = new SolidColorBrush(Luminance(accent) > 0.6 ? Colors.Black : Colors.White);
+        r["AccentForegroundBrush"] = onAccent;
+        // Fluent's own accent controls use fixed white text/knobs: switch them too, so a light accent stays readable.
+        foreach (var key in new[]
+                 {
+                     "AccentButtonForeground", "AccentButtonForegroundPointerOver", "AccentButtonForegroundPressed",
+                     "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
+                     "CheckBoxCheckGlyphForegroundChecked", "CheckBoxCheckGlyphForegroundCheckedPointerOver", "CheckBoxCheckGlyphForegroundCheckedPressed",
+                 })
+            r[key] = onAccent;
 
         var radius = Math.Clamp(s.CornerRadius, 0, 24);
         r["ControlCornerRadius"] = new CornerRadius(Math.Min(radius, 8));

@@ -340,6 +340,65 @@ Section("Library merge");
 }
 
 // ---------------------------------------------------------------------------------------------
+Section("Library safety (unplugged drives, uninstall, saves)");
+{
+    var lib = new LibraryService();
+    var settings = new AppSettings();
+    Check(!LibraryService.IsOnUnavailableDrive(tmpRoot), "a folder on an available drive is not 'unavailable'");
+    Check(!LibraryService.IsOnUnavailableDrive(null), "no folder is not 'unavailable'");
+
+    // A free drive letter stands in for an unplugged external disk (Windows only; elsewhere every path has a root).
+    string? offline = null;
+    if (OperatingSystem.IsWindows())
+        foreach (var letter in "QRSTUVWXYZ")
+            if (!Directory.Exists(letter + ":\\")) { offline = letter + ":\\Games\\Far Cry"; break; }
+
+    var scan = new ScanResult();
+    scan.CompletedSources.Add(GameSource.Steam);
+    scan.Items.Add(new GameEntry { Id = "steam:10", Name = "Here", Source = GameSource.Steam, InstallDir = Dir("lib2", "here") });
+    scan.Items.Add(new GameEntry { Id = "steam:11", Name = "Gone", Source = GameSource.Steam, InstallDir = Path.Combine(tmpRoot, "lib2", "gone") });
+    if (offline is not null)
+        scan.Items.Add(new GameEntry { Id = "steam:12", Name = "Offline", Source = GameSource.Steam, InstallDir = offline });
+    lib.Merge(scan, settings);
+    foreach (var i in lib.Data.Items) { i.Favorite = true; i.PlaytimeSeconds = 7200; }
+
+    // Next scan: only "Here" is found (the other drive is unplugged, "Gone" was uninstalled).
+    var scan2 = new ScanResult();
+    scan2.CompletedSources.Add(GameSource.Steam);
+    scan2.Items.Add(new GameEntry { Id = "steam:10", Name = "Here", Source = GameSource.Steam, InstallDir = Dir("lib2", "here") });
+    lib.Merge(scan2, settings);
+    Check(lib.Data.Items.All(i => i.Id != "steam:11"), "an uninstalled game (drive present, folder gone) is removed");
+    if (offline is not null)
+    {
+        var off = lib.Data.Items.FirstOrDefault(i => i.Id == "steam:12");
+        Check(off is not null && off.Missing && off.Favorite && off.PlaytimeSeconds == 7200, "a game on an unplugged drive is kept with its playtime and favourite");
+    }
+
+    // After an uninstall only that game is checked and removed.
+    var a = new GameEntry { Id = "folder:a", Name = "A", Source = GameSource.Folder, InstallDir = Path.Combine(tmpRoot, "lib2", "a-gone") };
+    var b = new GameEntry { Id = "folder:b", Name = "B", Source = GameSource.Folder, InstallDir = Path.Combine(tmpRoot, "lib2", "b-gone") };
+    lib.Data.Items.Add(a);
+    lib.Data.Items.Add(b);
+    Check(lib.PruneIfUninstalled(a) && !lib.Data.Items.Contains(a) && lib.Data.Items.Contains(b), "uninstall removes only the game that was uninstalled");
+    var here = lib.Data.Items.First(i => i.Id == "steam:10");
+    Check(!lib.PruneIfUninstalled(here) && lib.Data.Items.Contains(here), "a game still on disk isn't removed");
+
+    // Saves keep the previous file as .bak, and a damaged library is restored from it.
+    lib.SaveNow();
+    lib.Data.Items.Remove(b);
+    lib.SaveNow();
+    Check(File.Exists(AppPaths.LibraryFile + ".bak"), "previous library kept as .bak");
+    var good = Storage.LoadLibrary().Items.Count;
+    File.WriteAllText(AppPaths.LibraryFile, "{ this is not json");
+    var restored = Storage.LoadLibrary();
+    Check(restored.Items.Count > 0 && restored.Items.Count >= good, "a damaged library.json is restored from the backup", $"{restored.Items.Count} vs {good}");
+    Check(File.Exists(AppPaths.LibraryFile + ".corrupt"), "the damaged file is kept for inspection");
+    lib.SaveNow(); // put a good file back for later sections
+}
+
+
+
+// ---------------------------------------------------------------------------------------------
 Section("Manual add + shortcuts");
 {
     var exe = Path.Combine(Dir("Manual", "Cool Game", "Binaries", "Win64"), "CoolGame.exe");
@@ -553,6 +612,8 @@ Section("Network safety (everything that touches the internet)");
     Eq(UpdateStatus.UpToDate, UpdateService.Evaluate("""{"tag_name":"v1.0.0"}""", new Version(1, 0, 0, 0)).Status, "same version is up to date");
     Eq("What changed\n- **Faster** scans".Replace("**", ""), UpdateService.TidyMarkdown("## What changed\n- **Faster** scans"), "markdown headings/bold tidied");
     Eq(UpdateStatus.UpToDate, UpdateService.Evaluate("""{"tag_name":"v0.9.5"}""", v100).Status, "older release ignored");
+    Eq($"https://github.com/{UpdateService.Repository}/releases/tag/1.2.0", UpdateService.Evaluate("""{"tag_name":"1.2.0"}""", v100).Info?.PageUrl, "a tag without \"v\" links to its own release page");
+    Eq($"https://github.com/{UpdateService.Repository}/releases/latest", UpdateService.PageForTag("1.2.0/../../evil"), "an odd tag never ends up in the link");
     Eq(UpdateStatus.UpToDate, UpdateService.Evaluate("""{"tag_name":"v2.0.0","prerelease":true}""", v100).Status, "pre-release ignored");
     Eq(UpdateStatus.Failed, UpdateService.Evaluate("""{"tag_name":"v2.0.0-rc"}""", v100).Status, "odd tag = failed check");
     Eq(UpdateStatus.Failed, UpdateService.Evaluate("not json", v100).Status, "garbage = failed check");
@@ -602,6 +663,11 @@ Section("Force stop (only the game's own programs)");
     File.WriteAllText(Path.Combine(steamDir, "steam.exe"), "");
     Check(!GameProcesses.IsSafeGameFolder(steamDir), "a store client's folder is not");
     Check(!GameProcesses.IsSafeGameFolder(null) && !GameProcesses.IsSafeGameFolder(" "), "no folder is not");
+    var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    Check(!GameProcesses.IsSafeGameFolder(Path.Combine(profile, "Downloads")), "the Downloads folder is not (exe added from Downloads)");
+    Check(!GameProcesses.IsSafeGameFolder(Path.Combine(profile, "OneDrive")), "OneDrive is not");
+    Check(!GameProcesses.IsSafeGameFolder(Path.Combine(root, "D", "Downloads")), "a Downloads folder elsewhere is not");
+    Check(GameProcesses.IsSafeGameFolder(Path.Combine(profile, "Games", "Some Game")), "a game folder inside the user folder is");
     Eq("game", GameProcesses.NormalizeName("game.exe"), "process name normalised");
 
     if (OperatingSystem.IsLinux() && File.Exists("/bin/sleep"))
