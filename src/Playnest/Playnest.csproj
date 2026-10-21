@@ -10,6 +10,7 @@
     <RootNamespace>Playnest</RootNamespace>
     <Version>1.1.0</Version>
     <Product>Playnest</Product>
+    <Copyright>Copyright (c) 2026 Kishen (Random5386). MIT License.</Copyright>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\playnest.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>

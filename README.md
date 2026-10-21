@@ -146,3 +146,7 @@ tests/Playnest.Tests/  test runner
 ## Keyboard
 
 `Ctrl+F` search · `F5` scan · `Enter` play selected · `Esc` clear search / close details
+
+## License
+
+Playnest is open source under the [MIT License](LICENSE).
