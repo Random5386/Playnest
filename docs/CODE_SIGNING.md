@@ -43,7 +43,7 @@ See "Security & privacy" in the [README](../README.md).
 
 1. Raise `<Version>` in `src/Playnest/Playnest.csproj` (e.g. `1.2.0`) and commit.
 2. Tag and push: `git tag v1.2.0` then `git push origin v1.2.0`.
-3. The release workflow tests, builds the native exe and sends it to SignPath. Approve the request in SignPath
+3. The release workflow tests, builds the self-contained `Playnest.exe` (`publish.ps1`) and sends it to SignPath. Approve the request in SignPath
    (you get an email; the workflow waits up to an hour).
 4. A **draft** release appears on GitHub with the signed `Playnest.exe` and `SHA256SUMS.txt`. Write what changed and publish it.
 

@@ -2,7 +2,7 @@
 
 A lightweight, customizable game launcher for Windows. It finds the games you have installed (and only games), shows them with high-resolution artwork, and keeps out of the way while you play.
 
-Built with C# / .NET 10 and Avalonia, compiled ahead-of-time (NativeAOT) into a native exe.
+Built with C# / .NET 10 and Avalonia. Releases are a single self-contained `Playnest.exe` (trimmed and pre-compiled); a NativeAOT build is also possible.
 
 ## Features
 
@@ -40,7 +40,7 @@ Built with C# / .NET 10 and Avalonia, compiled ahead-of-time (NativeAOT) into a 
 
 ## Low resource usage
 
-- Native AOT exe with workstation, non-concurrent GC and invariant globalization.
+- Trimmed, pre-compiled (ReadyToRun) exe, or NativeAOT; workstation, non-concurrent GC and invariant globalization.
 - Grid and list are **virtualized**: only visible tiles exist.
 - Images are **decoded at the size they're shown**, not at full resolution, and only a small number stay cached.
 - While you play (with "hide to tray" on), Playnest **unloads all artwork and trims its RAM**. While hidden, nothing renders.
@@ -76,20 +76,21 @@ On your PC:
 
 Requirements: Windows 10/11 and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
-The easiest way: **double-click `publish.cmd`**. It builds the native exe, falls back to the portable build if
-the C++ tools aren't installed, and opens the output folder when it's done.
+The easiest way: **double-click `publish.cmd`**. It builds one self-contained `Playnest.exe` (the same kind as the GitHub
+releases) and opens the output folder when it's done.
 
 Or from PowerShell:
 
 ```powershell
-# Native build (smallest, fastest). Needs Visual Studio's "Desktop development with C++" workload.
+# One self-contained exe (what releases ship): trimmed, compressed, nothing to install
 .\publish.ps1
 
-# Or, without the C++ tools: trimmed self-contained single exe
-.\publish.ps1 -Portable
+# NativeAOT (fastest start, least RAM). Needs Visual Studio's "Desktop development with C++" workload.
+# This is a folder: Playnest.exe needs the DLLs next to it, so keep the whole folder together.
+.\publish.ps1 -Native
 ```
 
-The result is written to `publish\Playnest\`. Copy that folder anywhere and run `Playnest.exe`. Nothing needs to be installed.
+The result is written to `publish\Playnest\`. Run `Playnest.exe` from anywhere. Nothing needs to be installed.
 
 To work on it, open `Playnest.sln` in Visual Studio 2026, or in VS Code / Rider with the .NET 10 SDK, and run the `Playnest` project.
 `dotnet run --project src/Playnest` also works.
