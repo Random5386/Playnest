@@ -46,6 +46,8 @@
       <SolidColorBrush x:Key="AccentForegroundBrush" Color="White" />
       <CornerRadius x:Key="TileCornerRadius">8</CornerRadius>
       <CornerRadius x:Key="CardCornerRadius">10</CornerRadius>
+      <!-- Scroll bars: a normal, easy-to-grab width (like File Explorer's) instead of Fluent's thin auto-hiding bar. -->
+      <x:Double x:Key="ScrollBarSize">16</x:Double>
       <x:Double x:Key="AppFontSize">14</x:Double>
       <x:Double x:Key="AppFontSizeSmall">12</x:Double>
       <x:Double x:Key="AppFontSizeLarge">20</x:Double>
