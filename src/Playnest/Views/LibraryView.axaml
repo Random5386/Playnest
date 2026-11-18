@@ -89,8 +89,10 @@
 
     <!-- ============================== Content ============================== -->
     <Panel>
-      <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled" Padding="28,4,14,24">
-        <StackPanel>
+      <!-- The gap around the tiles is a margin on the content, not ScrollViewer.Padding: Avalonia leaves padding out of the
+           scrollable height, which cut off the bottom row so it could never be scrolled into view. -->
+      <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="28,4,14,24">
           <!-- Continue playing -->
           <StackPanel IsVisible="{Binding ShowRecent}" Margin="0,0,0,18">
             <TextBlock Text="Continue playing" Classes="h2" Margin="0,0,0,10" />
@@ -125,6 +127,7 @@
                                     <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                     <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
                                     <Separator />
+                                    <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseSgdbArtCommand}" />
                                     <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                                   </MenuItem>
                                   <Separator />
@@ -210,6 +213,7 @@
                                         <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                         <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
                                         <Separator />
+                                        <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseSgdbArtCommand}" />
                                         <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                                       </MenuItem>
                                       <Separator />
@@ -316,6 +320,7 @@
                                         <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                         <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
                                         <Separator />
+                                        <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseSgdbArtCommand}" />
                                         <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                                       </MenuItem>
                                       <Separator />
@@ -409,6 +414,7 @@
                                     <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                     <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
                                     <Separator />
+                                    <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseSgdbArtCommand}" />
                                     <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                                   </MenuItem>
                                   <Separator />

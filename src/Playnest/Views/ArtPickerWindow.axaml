@@ -1,0 +1,98 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Playnest.ViewModels"
+        xmlns:art="using:Playnest.Services.Artwork"
+        x:Class="Playnest.Views.ArtPickerWindow"
+        x:DataType="vm:ArtPickerViewModel"
+        Title="{Binding Title}"
+        Width="900" Height="680" MinWidth="560" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource DialogBrush}"
+        FontFamily="{DynamicResource AppFontFamily}" FontSize="{DynamicResource AppFontSize}">
+
+  <Window.Styles>
+    <Style Selector="Button.pick">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,12,12" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.pick:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.pick.current /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel>
+    <!-- Footer -->
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource CardBrush}" Padding="24,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <ProgressBar IsIndeterminate="True" Width="60" MinWidth="60" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Status}" Classes="subtle small" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="Restore previous" Command="{Binding RestoreCommand}" IsVisible="{Binding CanRestore}"
+                  ToolTip.Tip="Go back to the artwork this game had before" />
+          <Button Name="CloseButton" Content="Done" Classes="accent" IsCancel="True" MinWidth="90" HorizontalContentAlignment="Center" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Header: which game, which kind -->
+    <StackPanel DockPanel.Dock="Top" Margin="24,18,24,10" Spacing="12">
+      <Grid ColumnDefinitions="*,8,Auto,16,Auto">
+        <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}" HorizontalAlignment="Stretch"
+                  PlaceholderText="Game on SteamGridDB" ToolTip.Tip="The game on SteamGridDB">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="art:SgdbGame">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBox Name="SearchBox" Grid.Column="2" Text="{Binding SearchText}" Watermark="Search another name" Width="220" />
+        <Button Grid.Column="4" Content="Search" Command="{Binding SearchCommand}" />
+      </Grid>
+      <Border Classes="card" Padding="2" CornerRadius="8" HorizontalAlignment="Left">
+        <StackPanel Orientation="Horizontal">
+          <Button Classes="seg" Classes.active="{Binding IsCover}" Command="{Binding ShowKindCommand}" CommandParameter="Cover" Content="Cover" Padding="14,6" />
+          <Button Classes="seg" Classes.active="{Binding IsHero}" Command="{Binding ShowKindCommand}" CommandParameter="Hero" Content="Background" Padding="14,6" />
+          <Button Classes="seg" Classes.active="{Binding IsIcon}" Command="{Binding ShowKindCommand}" CommandParameter="Icon" Content="Icon" Padding="14,6" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+
+    <!-- Images -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Images}" Margin="24,4,12,16">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ArtChoice">
+            <Button Classes="pick" Classes.current="{Binding IsCurrent}" Command="{Binding UseCommand}" ToolTip.Tip="{Binding Info}">
+              <StackPanel Spacing="4">
+                <Border Width="{Binding TileWidth}" Height="{Binding TileHeight}"
+                        CornerRadius="6" ClipToBounds="True" Background="{DynamicResource CardBrush}">
+                  <Panel>
+                    <ProgressBar IsIndeterminate="True" Width="40" MinWidth="40" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                 IsVisible="{Binding Thumb, Converter={x:Static ObjectConverters.IsNull}}" />
+                    <Image Source="{Binding Thumb}" Stretch="Uniform" />
+                  </Panel>
+                </Border>
+                <TextBlock Text="{Binding Info}" Classes="subtle" FontSize="11" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           MaxWidth="{Binding TileWidth}" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

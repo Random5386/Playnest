@@ -29,6 +29,7 @@ public interface IGameHost
     Task Remove(GameViewModel g);
     Task ChangeImage(GameViewModel g, ArtKind kind);
     void RefreshArtwork(GameViewModel g);
+    Task ChooseSgdbArt(GameViewModel g);
     void Select(GameViewModel g);
 }
 
@@ -309,6 +310,7 @@ public sealed partial class GameViewModel : ObservableObject
     [RelayCommand] private Task ChangeIcon() => _host.ChangeImage(this, ArtKind.Icon);
     [RelayCommand] private Task ChangeHero() => _host.ChangeImage(this, ArtKind.Hero);
     [RelayCommand] private void RefreshArtwork() => _host.RefreshArtwork(this);
+    [RelayCommand] private Task ChooseSgdbArt() => _host.ChooseSgdbArt(this);
     [RelayCommand] private void Select() => _host.Select(this);
 
     // ------------------------------------------------------------------ formatting

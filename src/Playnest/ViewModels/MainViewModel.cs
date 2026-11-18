@@ -65,6 +65,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         if (value != AppPage.Settings) return;
         SettingsPage.UpdateMemory();
         SettingsPage.UpdateCacheSize();
+        SettingsPage.UpdateRestoreArtwork();
         if (LastUpdateResult is { Status: not UpdateStatus.Failed } r && !SettingsPage.IsCheckingUpdate) SettingsPage.ShowUpdateResult(r);
     }
 
@@ -792,6 +793,99 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         Library.SaveSoon();
         g.ReloadImages(force: false);
     }
+
+    // ------------------------------------------------------------------ SteamGridDB artwork
+
+    public Task ChooseSgdbArt(GameViewModel g) => ChooseSgdbArt(g, ArtKind.Cover);
+
+    /// <summary>Opens the SteamGridDB picker for one game (needs a key in Settings).</summary>
+    public async Task ChooseSgdbArt(GameViewModel g, ArtKind kind)
+    {
+        if (!Artwork.HasSteamGridDbKey)
+        {
+            ShowToast("Add a SteamGridDB key in Settings → Artwork to choose artwork from SteamGridDB.", actionText: "Open Settings",
+                action: () => CurrentPage = AppPage.Settings);
+            return;
+        }
+        using var vm = new ArtPickerViewModel(this, g, kind);
+        await Ui.PickArtwork(vm);
+    }
+
+    /// <summary>After SteamGridDB art was chosen or the earlier art was put back.</summary>
+    public void OnArtworkReplaced(GameViewModel g)
+    {
+        Library.SaveSoon();
+        g.ReloadImages(force: false);
+        SettingsPage.UpdateRestoreArtwork();
+    }
+
+    /// <summary>
+    /// Replaces the cover, background and icon of every game with SteamGridDB's top pick. Art the user already picked
+    /// from SteamGridDB is kept; everything replaced is remembered so <see cref="RestoreAllArtwork"/> can bring it back.
+    /// Returns how many games got new artwork.
+    /// </summary>
+    public async Task<int> ReplaceAllWithSgdbAsync(Action<int, int> progress, CancellationToken ct)
+    {
+        var games = _vms.Values.Where(g => g.Kind == ItemKind.Game && !g.Entry.Missing).OrderBy(g => g.SortName, StringComparer.OrdinalIgnoreCase).ToList();
+        int done = 0, changed = 0;
+        progress(0, games.Count);
+        using var gate = new SemaphoreSlim(3);
+        var tasks = games.Select(async g =>
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                if (ct.IsCancellationRequested) return;
+                var kinds = ArtworkOverrides.Kinds.Where(k => !ArtworkOverrides.IsFromSgdb(g.Entry, k)).ToList();
+                if (kinds.Count == 0) return;
+                if (await Artwork.SgdbMatchAsync(g.Entry).ConfigureAwait(false) is not { } match) return;
+                var found = new List<(ArtKind Kind, byte[] Bytes)>();
+                foreach (var k in kinds)
+                {
+                    if (ct.IsCancellationRequested) return;
+                    if (await Artwork.SgdbBestImageAsync(match, k).ConfigureAwait(false) is { } b) found.Add((k, b));
+                }
+                if (found.Count == 0 || ct.IsCancellationRequested) return;
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    bool any = false;
+                    foreach (var (k, b) in found) any |= ArtworkOverrides.Apply(g.Entry, k, b) is not null;
+                    if (!any) return;
+                    g.Entry.SgdbGameId = match.Id;
+                    g.ReloadImages(force: false);
+                    changed++;
+                });
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Log.Error($"replace art {g.Name}", ex); }
+            finally
+            {
+                gate.Release();
+                int n = Interlocked.Increment(ref done);
+                Dispatcher.UIThread.Post(() => progress(n, games.Count));
+            }
+        }).ToList();
+        try { await Task.WhenAll(tasks); }
+        catch (OperationCanceledException) { }
+        Library.SaveSoon();
+        SettingsPage.UpdateRestoreArtwork();
+        return changed;
+    }
+
+    /// <summary>Puts back all artwork that SteamGridDB replaced. Returns how many games changed.</summary>
+    public int RestoreAllArtwork()
+    {
+        int n = ArtworkOverrides.RestoreAll(Library.Data.Items);
+        if (n > 0)
+        {
+            Library.SaveSoon();
+            InvalidateAllImages();
+        }
+        SettingsPage.UpdateRestoreArtwork();
+        return n;
+    }
+
+    public bool AnyArtworkToRestore => Library.Data.Items.Any(ArtworkOverrides.CanRestoreAny);
 
     public void RefreshArtwork(GameViewModel g)
     {

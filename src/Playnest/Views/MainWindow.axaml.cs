@@ -205,6 +205,10 @@ public partial class MainWindow : Window, IUiService
         base.OnPropertyChanged(change);
         // Whenever the window becomes visible, however it was opened, artwork must be switched back on.
         if (change.Property == IsVisibleProperty && change.GetNewValue<bool>()) _vm?.ResumeImages();
+        // A maximized window with its own title bar reaches a few pixels past every screen edge (where the resize
+        // border would be); pad by that much so the bottom of the library isn't hidden off-screen.
+        if (change.Property == WindowStateProperty || change.Property == OffScreenMarginProperty)
+            Padding = WindowState == WindowState.Maximized ? OffScreenMargin : default;
         if (change.Property == ActualTransparencyLevelProperty && _vm is not null)
         {
             var s = _vm.Settings;
@@ -256,6 +260,13 @@ public partial class MainWindow : Window, IUiService
         EnsureVisibleForDialog();
         var dlg = new EditGameWindow { DataContext = vm };
         return await dlg.ShowDialog<bool>(this);
+    }
+
+    public async Task PickArtwork(ArtPickerViewModel vm)
+    {
+        EnsureVisibleForDialog();
+        var dlg = new ArtPickerWindow { DataContext = vm };
+        await dlg.ShowDialog(this);
     }
 
     private void EnsureVisibleForDialog()

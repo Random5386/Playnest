@@ -328,6 +328,79 @@ public sealed partial class SettingsViewModel : ObservableObject
         _main.ShowToast("Artwork cache cleared. Images will be fetched again as you scroll.");
     }
 
+    // ------------------------------------------------------------------ Artwork: all from SteamGridDB
+
+    private CancellationTokenSource? _replaceCts;
+
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsNotReplacingArt))] public partial bool IsReplacingArt { get; set; }
+    public bool IsNotReplacingArt => !IsReplacingArt;
+    [ObservableProperty] public partial string ReplaceArtStatus { get; set; } = "";
+    [ObservableProperty] public partial bool CanRestoreArtwork { get; set; }
+
+    public void UpdateRestoreArtwork() => CanRestoreArtwork = _main.AnyArtworkToRestore;
+
+    [RelayCommand]
+    private async Task ReplaceAllArtwork()
+    {
+        if (IsReplacingArt) return;
+        if (!_main.Artwork.HasSteamGridDbKey)
+        {
+            ReplaceArtStatus = "Paste a SteamGridDB key above first (and press Test to check it).";
+            return;
+        }
+        int count = _main.Library.Data.Items.Count(e => e.EffectiveKind == ItemKind.Game && !e.Missing);
+        if (!await _main.Ui.Confirm("Use SteamGridDB for all artwork?",
+                $"Playnest will replace the cover, background and icon of your {count} game{(count == 1 ? "" : "s")} with SteamGridDB's top-rated artwork, " +
+                "including images you chose yourself. Games SteamGridDB doesn't list keep their current art.\n\n" +
+                "Your current artwork is kept: \"Restore original artwork\" puts it all back, and you can still pick other images per game " +
+                "(right-click a game → Artwork → Choose from SteamGridDB…).",
+                "Replace all"))
+            return;
+
+        IsReplacingArt = true;
+        _replaceCts = new CancellationTokenSource();
+        try
+        {
+            int changed = await _main.ReplaceAllWithSgdbAsync((done, total) =>
+            {
+                if (IsReplacingArt) ReplaceArtStatus = $"Replacing artwork… {done} of {total} games";
+            }, _replaceCts.Token);
+            ReplaceArtStatus = _replaceCts.IsCancellationRequested
+                ? $"Stopped. {changed} game{(changed == 1 ? " has" : "s have")} SteamGridDB artwork now."
+                : $"Done ✓ {changed} game{(changed == 1 ? "" : "s")} now use SteamGridDB artwork.";
+            _main.ShowToast(ReplaceArtStatus.Replace("Done ✓ ", ""), actionText: changed > 0 ? "Undo" : null,
+                action: changed > 0 ? () => RestoreAllArtworkNow() : null);
+        }
+        finally
+        {
+            IsReplacingArt = false;
+            _replaceCts.Dispose();
+            _replaceCts = null;
+            UpdateRestoreArtwork();
+        }
+    }
+
+    [RelayCommand]
+    private void StopReplacingArtwork() => _replaceCts?.Cancel();
+
+    [RelayCommand]
+    private async Task RestoreAllArtwork()
+    {
+        if (IsReplacingArt) return;
+        if (!await _main.Ui.Confirm("Restore original artwork?",
+                "Every cover, background and icon that came from SteamGridDB goes back to what the game had before. Images you've chosen yourself since then are kept.",
+                "Restore"))
+            return;
+        RestoreAllArtworkNow();
+    }
+
+    private void RestoreAllArtworkNow()
+    {
+        int n = _main.RestoreAllArtwork();
+        ReplaceArtStatus = n == 0 ? "Nothing to restore." : $"Original artwork restored for {n} game{(n == 1 ? "" : "s")}.";
+        _main.ShowToast(ReplaceArtStatus);
+    }
+
     public void UpdateCacheSize()
     {
         var bytes = ArtworkService.CacheSizeBytes();

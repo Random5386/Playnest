@@ -414,6 +414,25 @@
           </StackPanel>
           <Grid Classes="setting" ColumnDefinitions="*,Auto">
             <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Use SteamGridDB for all artwork" />
+              <TextBlock Text="Replaces every game's cover, background and icon with SteamGridDB's top-rated art. Your current art is kept so you can restore it. To pick images one game at a time, right-click a game → Artwork → Choose from SteamGridDB…" Classes="subtle small" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ReplaceArtStatus}" Classes="subtle small" TextWrapping="Wrap" Margin="0,4,0,0"
+                         IsVisible="{Binding ReplaceArtStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button Content="Replace all…" Command="{Binding ReplaceAllArtworkCommand}" IsVisible="{Binding IsNotReplacingArt}" />
+              <Button Content="Stop" Command="{Binding StopReplacingArtworkCommand}" IsVisible="{Binding IsReplacingArt}" />
+            </StackPanel>
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Restore original artwork" />
+              <TextBlock Text="Puts back the artwork games had before SteamGridDB art replaced it." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Restore…" Command="{Binding RestoreAllArtworkCommand}" IsEnabled="{Binding CanRestoreArtwork}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
               <TextBlock Text="Image quality" />
               <TextBlock Text="Images are decoded at the size they're shown. Higher quality looks sharper on high-DPI screens but uses more memory." Classes="subtle small" TextWrapping="Wrap" />
             </StackPanel>

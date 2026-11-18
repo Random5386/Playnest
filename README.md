@@ -24,6 +24,7 @@ Built with C# / .NET 10 and Avalonia. Releases are a single self-contained `Play
   - Low-resolution local copies are upgraded automatically.
   - Icons: the largest available version is chosen from the exe, `.ico` files in the game folder, Steam's own icon, or Xbox logos.
   - An optional SteamGridDB key adds art for games that aren't on Steam or Epic.
+  - With a key you can also pick any cover, background or icon from SteamGridDB for a game (right-click → Artwork → Choose from SteamGridDB…), or switch every game to SteamGridDB art at once in Settings → Artwork. The art it replaced is kept and can be restored.
 - **Game sizes:** Steam and Epic sizes are read instantly; other games are measured once in the background at low priority.
   Sizes are shown on every game tile (can be turned off in Settings), in the details panel, the list view and the header total, and are sortable.
 - **Views:** cover grid (default), icon grid and list, with a "Continue playing" row and a details panel.

@@ -561,13 +561,7 @@ public sealed partial class ArtworkService
     /// <summary>Downloads the first usable image of one kind for a SteamGridDB game reference ("steam/123" or "game/456").</summary>
     private static async Task<byte[]?> SgdbImageAsync(string gameRef, ArtKind kind, string key)
     {
-        string url = kind switch
-        {
-            ArtKind.Cover => $"{SgdbApi}/grids/{gameRef}?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false",
-            ArtKind.Hero => $"{SgdbApi}/heroes/{gameRef}?types=static&nsfw=false&humor=false",
-            _ => $"{SgdbApi}/icons/{gameRef}?types=static&mimes=image/png&nsfw=false&humor=false",
-        };
-        using var res = await SgdbGet(url, key).ConfigureAwait(false);
+        using var res = await SgdbGet(SgdbImagesUrl(gameRef, kind), key).ConfigureAwait(false);
         if (res is null) return null;
         foreach (var item in res.RootElement.GetProperty("data").EnumerateArray().Take(3))
         {

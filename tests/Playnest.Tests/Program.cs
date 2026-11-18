@@ -670,6 +670,64 @@ Section("Network safety (everything that touches the internet)");
     Check(sgdbArt.GetAsync(noMatch, ArtKind.Cover).Result is null, "with a Steam id, an unrelated SteamGridDB search result isn't used");
     ArtworkService.ForgetGaps();
     Check(!Directory.EnumerateFiles(AppPaths.ArtDir, "*.miss", SearchOption.AllDirectories).Any(), "retrying missing art forgets every \"not found\" marker");
+
+    // Choosing artwork from SteamGridDB: listing a game's images, finding the right game, and keeping what it replaced.
+    const string heroQuery = "?types=static&nsfw=false&humor=false";
+    handler.Routes[$"{sgdbApi}/heroes/game/4242{heroQuery}"] = r => Sgdb(r, """
+        {"success":true,"data":[
+          {"id":1,"url":"https://cdn2.steamgriddb.com/hero/a.png","thumb":"https://cdn2.steamgriddb.com/thumb/a.jpg","width":1920,"height":620,"style":"alternate"},
+          {"id":2,"url":"https://evil.com/hero/b.png","thumb":"https://evil.com/b.jpg","width":1920,"height":620},
+          {"id":3,"url":"https://cdn2.steamgriddb.com/hero/c.png","nsfw":true},
+          {"id":4,"url":"https://cdn2.steamgriddb.com/hero/d.png","thumb":"https://evil.com/d.jpg","style":"bad\u202Estyle"}
+        ]}
+        """);
+    var heroes = sgdbArt.SgdbImagesAsync(4242, ArtKind.Hero).Result;
+    Eq(2, heroes.Count, "SteamGridDB listing skips other hosts and NSFW images");
+    Eq("https://cdn2.steamgriddb.com/thumb/a.jpg", heroes[0].Thumb, "SteamGridDB preview image is used for the picker");
+    Eq(heroes[1].Url, heroes[1].Thumb, "a preview on another host is replaced by the full image");
+    Eq("badstyle", heroes[1].Style, "text from SteamGridDB has format characters removed");
+    Check(ArtworkService.SgdbDownloadAsync("https://evil.com/x.png").Result is null, "SteamGridDB downloads only from SteamGridDB's image host");
+    Check(sgdbArt.SgdbImagesAsync(4242, ArtKind.Cover).Result.Count == 1, "covers listed for a SteamGridDB game");
+
+    handler.Routes[$"{sgdbApi}/games/steam/777003"] = r => Sgdb(r, """{"success":true,"data":{"id":5555,"name":"Ember Road","release_date":1600000000}}""");
+    handler.Routes[$"{sgdbApi}/games/id/4243"] = r => Sgdb(r, """{"success":true,"data":{"id":4243,"name":"Rockslide"}}""");
+    var ember = new GameEntry { Id = "steam:777003", Name = "Ember Road (Old Name)", Source = GameSource.Steam, SteamAppId = 777003 };
+    var emberMatch = sgdbArt.SgdbMatchAsync(ember).Result;
+    Check(emberMatch is { Id: 5555, Year: 2020 }, "SteamGridDB game found by Steam id", emberMatch?.ToString());
+    ember.SgdbGameId = 4243;
+    Eq(4243L, sgdbArt.SgdbMatchAsync(ember).Result?.Id, "a SteamGridDB game the user chose is used from then on");
+    Eq(4242L, sgdbArt.SgdbMatchAsync(gemfall).Result?.Id, "SteamGridDB game found by name when there is no Steam id");
+    Check(sgdbArt.SgdbMatchAsync(noMatch).Result is null, "with a Steam id, an unrelated search result isn't matched");
+    Check(sgdbArt.SgdbBestImageAsync(emberMatch!, ArtKind.Cover).Result is null, "no image when SteamGridDB lists none");
+    var best = sgdbArt.SgdbBestImageAsync(new SgdbGame(4242, "Gemfall", 0), ArtKind.Cover).Result;
+    Check(best is not null && ArtworkService.IsImage(best), "top SteamGridDB cover downloaded for \"replace all\"");
+
+    // Replacing and restoring (the earlier image is never lost)
+    var mine = Path.Combine(AppPaths.CustomArtDir, "my-own-cover.png");
+    File.WriteAllBytes(mine, sgdbPng);
+    var art = new GameEntry { Id = "folder:art", Name = "Art Test", CustomCover = mine };
+    var first = ArtworkOverrides.Apply(art, ArtKind.Cover, sgdbPng);
+    Check(first is not null && art.CustomCover == first && File.Exists(first), "SteamGridDB cover saved as the game's cover");
+    Eq(mine, art.CoverBeforeSgdb, "the cover it replaced is remembered");
+    Check(ArtworkOverrides.CanRestore(art, ArtKind.Cover) && ArtworkOverrides.IsFromSgdb(art, ArtKind.Cover), "replaced cover can be restored");
+    var second = ArtworkOverrides.Apply(art, ArtKind.Cover, sgdbPng);
+    Check(second is not null && second != first && !File.Exists(first), "picking another SteamGridDB cover replaces the earlier pick's file");
+    Eq(mine, art.CoverBeforeSgdb, "the cover from before SteamGridDB is still remembered after a second pick");
+    Check(ArtworkOverrides.Restore(art, ArtKind.Cover) && art.CustomCover == mine && art.CoverBeforeSgdb is null, "restore brings back the user's own cover");
+    Check(File.Exists(mine) && !File.Exists(second!), "restore keeps the user's file and removes the SteamGridDB copy");
+    Check(ArtworkOverrides.Apply(art, ArtKind.Cover, new byte[600]) is null && art.CustomCover == mine, "data that isn't an image is never saved");
+
+    var auto = new GameEntry { Id = "folder:auto", Name = "Auto" };
+    ArtworkOverrides.Apply(auto, ArtKind.Hero, sgdbPng);
+    ArtworkOverrides.Apply(auto, ArtKind.Icon, sgdbPng);
+    Eq("", auto.HeroBeforeSgdb, "found (not custom) artwork is remembered as \"none\"");
+    var chosenLater = Path.Combine(AppPaths.CustomArtDir, "chosen-later.png");
+    File.WriteAllBytes(chosenLater, sgdbPng);
+    auto.CustomIcon = chosenLater; // the user picked their own icon afterwards
+    Check(!ArtworkOverrides.CanRestore(auto, ArtKind.Icon), "an image the user chose later isn't offered for restore");
+    Eq(1, ArtworkOverrides.RestoreAll([auto, art]), "restore all counts the games that changed");
+    Check(auto.CustomHero is null && auto.CustomIcon == chosenLater, "restore all goes back to found artwork but keeps images the user chose later");
+    Check(!ArtworkOverrides.IsSgdbFile(Path.Combine(tmpRoot, "x-sgdb-1.png")), "only Playnest's own SteamGridDB files are ever deleted");
     SafeHttp.TestHandler = null;
 }
 

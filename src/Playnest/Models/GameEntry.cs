@@ -139,6 +139,17 @@ public sealed class GameEntry
     /// <summary>Steam app id found by name lookup for artwork only (0 = not looked up, -1 = no match).</summary>
     public long ArtSteamAppId { get; set; }
 
+    /// <summary>SteamGridDB game the user picked artwork from (0 = not chosen; found automatically).</summary>
+    public long SgdbGameId { get; set; }
+
+    /// <summary>
+    /// What the custom image was before SteamGridDB art replaced it ("" = there was none), so it can be restored.
+    /// Null when the image wasn't replaced.
+    /// </summary>
+    public string? CoverBeforeSgdb { get; set; }
+    public string? IconBeforeSgdb { get; set; }
+    public string? HeroBeforeSgdb { get; set; }
+
     [JsonIgnore] // worked out from the fields above; not stored
     public string DisplayName => string.IsNullOrWhiteSpace(CustomName) ? Name : CustomName!;
     [JsonIgnore]
