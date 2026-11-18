@@ -704,9 +704,10 @@ Section("Force stop (only the game's own programs)");
     if (OperatingSystem.IsLinux() && File.Exists("/bin/sleep"))
     {
         // Real processes: one "game" program inside the game folder, and the same program in another game's folder.
-        // The copies keep the name "sleep": newer runners ship a multi-call coreutils that refuses to run under another name.
-        var exe = Path.Combine(game, "bin", "sleep");
-        var otherExe = Path.Combine(other, "sleep");
+        // The copies are named "sleep.exe": newer runners ship a multi-call coreutils that only runs as "sleep" (".exe" is ignored),
+        // and Playnest only looks for .exe programs.
+        var exe = Path.Combine(game, "bin", "sleep.exe");
+        var otherExe = Path.Combine(other, "sleep.exe");
         File.Copy("/bin/sleep", exe, true);
         File.Copy("/bin/sleep", otherExe, true);
         File.SetUnixFileMode(exe, (UnixFileMode)0b111_101_101);
