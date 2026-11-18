@@ -49,8 +49,9 @@
     </StackPanel>
 
     <!-- Images -->
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="24,0,10,16">
-      <ItemsControl ItemsSource="{Binding Options}">
+    <!-- Margin on the list, not Padding on the ScrollViewer: a ScrollViewer's Padding isn't part of its scroll range. -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Options}" Margin="24,0,10,16">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
