@@ -704,8 +704,9 @@ Section("Force stop (only the game's own programs)");
     if (OperatingSystem.IsLinux() && File.Exists("/bin/sleep"))
     {
         // Real processes: one "game" program inside the game folder, and the same program in another game's folder.
-        var exe = Path.Combine(game, "bin", "sleepy.exe");
-        var otherExe = Path.Combine(other, "sleepy.exe");
+        // The copies keep the name "sleep": newer runners ship a multi-call coreutils that refuses to run under another name.
+        var exe = Path.Combine(game, "bin", "sleep");
+        var otherExe = Path.Combine(other, "sleep");
         File.Copy("/bin/sleep", exe, true);
         File.Copy("/bin/sleep", otherExe, true);
         File.SetUnixFileMode(exe, (UnixFileMode)0b111_101_101);

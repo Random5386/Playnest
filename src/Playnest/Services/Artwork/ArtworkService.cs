@@ -55,11 +55,19 @@ public sealed partial class ArtworkService
         // A forced refresh gets its own slot, so it isn't swallowed by a normal lookup that's already running.
         var key = e.Id + "|" + kind + (force ? "|refresh" : "");
         // Lazy makes sure only one task is ever created per key, and the entry is removed only after it finished.
-        var lazy = _inflight.GetOrAdd(key, _ => new Lazy<Task<string?>>(() => Task.Run(async () =>
+        Lazy<Task<string?>> lazy;
+        while (true)
         {
-            try { return await ResolveAsync(e, kind, force).ConfigureAwait(false); }
-            catch (Exception ex) { Log.Error($"artwork {kind} {e.DisplayName}", ex); return null; }
-        })));
+            lazy = _inflight.GetOrAdd(key, _ => new Lazy<Task<string?>>(() => Task.Run(async () =>
+            {
+                try { return await ResolveAsync(e, kind, force).ConfigureAwait(false); }
+                catch (Exception ex) { Log.Error($"artwork {kind} {e.DisplayName}", ex); return null; }
+            })));
+            // A lookup that already finished (its clean-up below just hasn't run yet) is never reused: settings such as
+            // the SteamGridDB key may have changed since, so start a fresh one.
+            if (lazy.IsValueCreated && lazy.Value.IsCompleted) { _inflight.TryRemove(new KeyValuePair<string, Lazy<Task<string?>>>(key, lazy)); continue; }
+            break;
+        }
         var task = lazy.Value;
         task.ContinueWith(_ => _inflight.TryRemove(new KeyValuePair<string, Lazy<Task<string?>>>(key, lazy)), TaskScheduler.Default);
         return task;
