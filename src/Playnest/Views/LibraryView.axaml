@@ -89,9 +89,11 @@
 
     <!-- ============================== Content ============================== -->
     <Panel>
-      <!-- One flat, virtualized list directly inside the scroll viewer (see MainViewModel.Feed). -->
-      <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled" Padding="28,4,14,24">
-        <ItemsControl Name="FeedList" ItemsSource="{Binding Feed}">
+      <!-- One flat, virtualized list directly inside the scroll viewer (see MainViewModel.Feed).
+           The space around it is the list's Margin, not the ScrollViewer's Padding: Avalonia leaves a ScrollViewer's
+           Padding out of the scroll range, which cut the bottom of the library off (the last row couldn't be reached). -->
+      <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl Name="FeedList" ItemsSource="{Binding Feed}" Margin="28,4,14,24">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
