@@ -298,7 +298,21 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(S.SteamGridDbApiKey)) { KeyStatus = "Paste a key first."; return; }
         KeyStatus = "Checking…";
-        KeyStatus = await _main.Artwork.TestSteamGridDbKeyAsync(S.SteamGridDbApiKey) ? "Key works ✓" : "That key didn't work (or SteamGridDB is unreachable).";
+        if (!await _main.Artwork.TestSteamGridDbKeyAsync(S.SteamGridDbApiKey))
+        {
+            KeyStatus = "That key didn't work (or SteamGridDB is unreachable).";
+            return;
+        }
+        if (!S.DownloadArtwork)
+        {
+            KeyStatus = "Key works ✓ Turn on \"Download missing artwork\" above so Playnest can use it.";
+            return;
+        }
+        // The key can fill gaps the keyless sources couldn't, so look again for games without (sharp) artwork.
+        KeyStatus = "Key works ✓ Looking for missing artwork…";
+        await _main.RetryMissingArtworkAsync();
+        UpdateCacheSize();
+        KeyStatus = "Key works ✓ Missing artwork is being fetched from SteamGridDB. Games that already have art keep it.";
     }
 
     [RelayCommand]

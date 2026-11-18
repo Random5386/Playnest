@@ -97,18 +97,30 @@ public sealed partial class ArtworkService
         {
             var marker = Path.Combine(AppPaths.ArtDir, "version.txt");
             if (File.Exists(marker) && File.ReadAllText(marker).Trim() == CacheVersion) return;
-            if (Directory.Exists(AppPaths.ArtDir))
-            {
-                foreach (var f in Directory.EnumerateFiles(AppPaths.ArtDir, "*.miss", SearchOption.AllDirectories)) TryDelete(f);
-                foreach (var f in Directory.EnumerateFiles(AppPaths.ArtDir, "cover.*", SearchOption.AllDirectories))
-                    if ((ImageInfo.SizeOfFile(f)?.Width ?? 0) < GoodCoverWidth) TryDelete(f);
-                foreach (var f in Directory.EnumerateFiles(AppPaths.ArtDir, "icon.*", SearchOption.AllDirectories))
-                    if ((ImageInfo.SizeOfFile(f)?.Width ?? 0) < GoodIconWidth) TryDelete(f);
-            }
+            ForgetGaps();
             Directory.CreateDirectory(AppPaths.ArtDir);
             File.WriteAllText(marker, CacheVersion);
         }
         catch (Exception ex) { Log.Error("migrate art cache", ex); }
+    }
+
+    /// <summary>
+    /// Forgets "not found" markers and drops low-resolution covers/icons so they are looked up again. Used when the
+    /// artwork rules change and when a SteamGridDB key starts working (it can fill exactly these gaps).
+    /// Custom images live elsewhere and are never touched.
+    /// </summary>
+    public static void ForgetGaps()
+    {
+        try
+        {
+            if (!Directory.Exists(AppPaths.ArtDir)) return;
+            foreach (var f in Directory.EnumerateFiles(AppPaths.ArtDir, "*.miss", SearchOption.AllDirectories)) TryDelete(f);
+            foreach (var f in Directory.EnumerateFiles(AppPaths.ArtDir, "cover.*", SearchOption.AllDirectories))
+                if ((ImageInfo.SizeOfFile(f)?.Width ?? 0) < GoodCoverWidth) TryDelete(f);
+            foreach (var f in Directory.EnumerateFiles(AppPaths.ArtDir, "icon.*", SearchOption.AllDirectories))
+                if ((ImageInfo.SizeOfFile(f)?.Width ?? 0) < GoodIconWidth) TryDelete(f);
+        }
+        catch (Exception ex) { Log.Error("forget art gaps", ex); }
     }
 
     public static void ClearAll()
@@ -134,16 +146,18 @@ public sealed partial class ArtworkService
         Directory.CreateDirectory(dir);
         var name = FileName(kind);
         var miss = Path.Combine(dir, name + ".miss");
+        var s = _settings();
+        bool hasKey = !string.IsNullOrWhiteSpace(s.SteamGridDbApiKey);
         if (force)
         {
             foreach (var f in Directory.GetFiles(dir, name + ".*")) TryDelete(f);
         }
-        else if (File.Exists(miss) && DateTime.UtcNow - File.GetLastWriteTimeUtc(miss) < MissRetry)
+        else if (File.Exists(miss) && DateTime.UtcNow - File.GetLastWriteTimeUtc(miss) < MissRetry && !(hasKey && !MissTriedSteamGridDb(miss)))
         {
+            // A miss recorded before a SteamGridDB key was added is retried straight away, since the key may find it.
             return null;
         }
 
-        var s = _settings();
         byte[]? best;
         if (kind == ArtKind.Icon) best = await ResolveIconAsync(e, s).ConfigureAwait(false);
         else
@@ -174,8 +188,17 @@ public sealed partial class ArtworkService
             return dest;
         }
 
-        try { File.WriteAllText(miss, ""); File.SetLastWriteTimeUtc(miss, DateTime.UtcNow); } catch { }
+        try { File.WriteAllText(miss, hasKey ? MissWithKey : ""); File.SetLastWriteTimeUtc(miss, DateTime.UtcNow); } catch { }
         return null;
+    }
+
+    /// <summary>Written into a ".miss" marker when SteamGridDB was part of the search.</summary>
+    private const string MissWithKey = "sgdb";
+
+    private static bool MissTriedSteamGridDb(string miss)
+    {
+        try { return File.ReadAllText(miss).Trim() == MissWithKey; }
+        catch { return false; }
     }
 
     /// <summary>Local cover/background: Steam's own cache.</summary>
@@ -504,36 +527,46 @@ public sealed partial class ArtworkService
         if (!IsValidKey(key)) return null;
         try
         {
-            const string api = "https://www.steamgriddb.com/api/v2";
-            string? gameRef = steamId > 0 ? $"steam/{steamId}" : null;
-            if (gameRef is null)
-            {
-                using var search = await SgdbGet($"{api}/search/autocomplete/{Uri.EscapeDataString(e.DisplayName)}", key).ConfigureAwait(false);
-                if (search is null) return null;
-                var data = search.RootElement.GetProperty("data");
-                if (data.GetArrayLength() == 0) return null;
-                var gid = BestNameMatch(e.DisplayName, data.EnumerateArray().Select(x => (x.GetProperty("name").GetString() ?? "", x.GetProperty("id").GetInt64())));
-                if (gid == 0) gid = data[0].GetProperty("id").GetInt64();
-                gameRef = $"game/{gid}";
-            }
+            // Steam id first (exact), then by name: SteamGridDB doesn't know every Steam id, and a game Steam's
+            // search matched can still be listed there under its own entry.
+            if (steamId > 0 && await SgdbImageAsync($"steam/{steamId}", kind, key).ConfigureAwait(false) is { } bySteam) return bySteam;
 
-            string url = kind switch
-            {
-                ArtKind.Cover => $"{api}/grids/{gameRef}?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false",
-                ArtKind.Hero => $"{api}/heroes/{gameRef}?types=static&nsfw=false&humor=false",
-                _ => $"{api}/icons/{gameRef}?types=static&mimes=image/png&nsfw=false&humor=false",
-            };
-            using var res = await SgdbGet(url, key).ConfigureAwait(false);
-            if (res is null) return null;
-            foreach (var item in res.RootElement.GetProperty("data").EnumerateArray().Take(3))
-            {
-                var imgUrl = item.GetProperty("url").GetString();
-                if (imgUrl is null) continue;
-                var b = await DownloadImageAsync(imgUrl).ConfigureAwait(false);
-                if (b is not null) return b;
-            }
+            using var search = await SgdbGet($"{SgdbApi}/search/autocomplete/{Uri.EscapeDataString(e.DisplayName)}", key).ConfigureAwait(false);
+            if (search is null) return null;
+            var candidates = new List<(string Name, long Id)>();
+            foreach (var x in search.RootElement.GetProperty("data").EnumerateArray())
+                if (x.ValueKind == JsonValueKind.Object && x.TryGetProperty("id", out var idEl) && idEl.TryGetInt64(out var id) && id > 0)
+                    candidates.Add((x.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "", id));
+            if (candidates.Count == 0) return null;
+            var gid = BestNameMatch(e.DisplayName, candidates);
+            // Without a Steam id the top search result is the best guess; with one, only a confident name match is used.
+            if (gid == 0 && steamId <= 0) gid = candidates[0].Id;
+            if (gid == 0) return null;
+            return await SgdbImageAsync($"game/{gid}", kind, key).ConfigureAwait(false);
         }
         catch (Exception ex) { Log.Error("steamgriddb", ex); }
+        return null;
+    }
+
+    private const string SgdbApi = "https://www.steamgriddb.com/api/v2";
+
+    /// <summary>Downloads the first usable image of one kind for a SteamGridDB game reference ("steam/123" or "game/456").</summary>
+    private static async Task<byte[]?> SgdbImageAsync(string gameRef, ArtKind kind, string key)
+    {
+        string url = kind switch
+        {
+            ArtKind.Cover => $"{SgdbApi}/grids/{gameRef}?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false",
+            ArtKind.Hero => $"{SgdbApi}/heroes/{gameRef}?types=static&nsfw=false&humor=false",
+            _ => $"{SgdbApi}/icons/{gameRef}?types=static&mimes=image/png&nsfw=false&humor=false",
+        };
+        using var res = await SgdbGet(url, key).ConfigureAwait(false);
+        if (res is null) return null;
+        foreach (var item in res.RootElement.GetProperty("data").EnumerateArray().Take(3))
+        {
+            if (item.ValueKind != JsonValueKind.Object || !item.TryGetProperty("url", out var u) || u.ValueKind != JsonValueKind.String) continue;
+            var b = await DownloadImageAsync(u.GetString()).ConfigureAwait(false);
+            if (b is not null) return b;
+        }
         return null;
     }
 
@@ -561,7 +594,7 @@ public sealed partial class ArtworkService
         // Keys are short tokens; refuse anything that could smuggle header characters.
         key = key.Trim();
         if (!IsValidKey(key)) return false;
-        using var doc = await SgdbGet("https://www.steamgriddb.com/api/v2/search/autocomplete/portal", key).ConfigureAwait(false);
+        using var doc = await SgdbGet($"{SgdbApi}/search/autocomplete/portal", key).ConfigureAwait(false);
         return doc is not null;
     }
 

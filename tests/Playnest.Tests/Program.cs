@@ -639,6 +639,37 @@ Section("Network safety (everything that touches the internet)");
     Check(ArtworkService.IsValidKey("abcdef0123456789abcdef0123456789"), "normal API key accepted");
     Check(!ArtworkService.IsValidKey("abc\r\nX-Evil: 1"), "API key with header characters refused");
     Check(PeIcon.FromIcoBytes([0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 32, 0, 255, 255, 255, 127, 22, 0, 0, 0]) is null, "malformed downloaded .ico handled safely");
+
+    // SteamGridDB: art that wasn't found before the key was added is looked up again once there is a key,
+    // and a Steam id SteamGridDB doesn't know falls back to a search by name.
+    var noisy = new byte[64 * 64 * 4];
+    new Random(1).NextBytes(noisy);
+    var sgdbPng = Png.Encode(noisy, 64, 64);
+    const string sgdbKey = "abcdef0123456789abcdef0123456789";
+    const string sgdbApi = "https://www.steamgriddb.com/api/v2";
+    const string gridQuery = "?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false";
+    HttpResponseMessage Sgdb(HttpRequestMessage r, string json) =>
+        r.Headers.Authorization?.Parameter == sgdbKey ? Ok(System.Text.Encoding.UTF8.GetBytes(json)) : new HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized);
+    handler.Routes[$"{sgdbApi}/search/autocomplete/Gemfall"] = r => Sgdb(r, """{"success":true,"data":[{"id":4242,"name":"Gemfall"}]}""");
+    handler.Routes[$"{sgdbApi}/grids/game/4242{gridQuery}"] = r => Sgdb(r, """{"success":true,"data":[{"url":"https://cdn2.steamgriddb.com/grid/gemfall.png"}]}""");
+    handler.Routes[$"{sgdbApi}/search/autocomplete/Rockslide"] = r => Sgdb(r, """{"success":true,"data":[{"id":4243,"name":"Rockslide"}]}""");
+    handler.Routes[$"{sgdbApi}/grids/game/4243{gridQuery}"] = r => Sgdb(r, """{"success":true,"data":[{"url":"https://cdn2.steamgriddb.com/grid/rockslide.png"}]}""");
+    handler.Routes["https://cdn2.steamgriddb.com/grid/gemfall.png"] = _ => Ok(sgdbPng);
+    handler.Routes["https://cdn2.steamgriddb.com/grid/rockslide.png"] = _ => Ok(sgdbPng);
+
+    var sgdbSettings = new AppSettings { DownloadArtwork = true, SteamGridDbApiKey = "" };
+    var sgdbArt = new ArtworkService(() => sgdbSettings);
+    var gemfall = new GameEntry { Id = "folder:gemfall", Name = "Gemfall", Source = GameSource.Folder };
+    Check(sgdbArt.GetAsync(gemfall, ArtKind.Cover).Result is null, "no cover found without a SteamGridDB key");
+    sgdbSettings.SteamGridDbApiKey = sgdbKey;
+    Check(sgdbArt.GetAsync(gemfall, ArtKind.Cover).Result is { } gemCover && File.Exists(gemCover), "after adding a key, a cover that wasn't found before is fetched from SteamGridDB");
+    var rockslide = new GameEntry { Id = "steam:777001", Name = "Rockslide", Source = GameSource.Steam, SteamAppId = 777001 };
+    Check(sgdbArt.GetAsync(rockslide, ArtKind.Cover).Result is not null, "Steam id unknown to SteamGridDB falls back to a name search");
+    var noMatch = new GameEntry { Id = "steam:777002", Name = "Quartzfall", Source = GameSource.Steam, SteamAppId = 777002 };
+    handler.Routes[$"{sgdbApi}/search/autocomplete/Quartzfall"] = r => Sgdb(r, """{"success":true,"data":[{"id":4242,"name":"Gemfall"}]}""");
+    Check(sgdbArt.GetAsync(noMatch, ArtKind.Cover).Result is null, "with a Steam id, an unrelated SteamGridDB search result isn't used");
+    ArtworkService.ForgetGaps();
+    Check(!Directory.EnumerateFiles(AppPaths.ArtDir, "*.miss", SearchOption.AllDirectories).Any(), "retrying missing art forgets every \"not found\" marker");
     SafeHttp.TestHandler = null;
 }
 

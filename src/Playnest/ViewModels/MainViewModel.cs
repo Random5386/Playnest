@@ -1020,6 +1020,17 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         foreach (var vm in _vms.Values) vm.ReloadImages(force: false);
     }
 
+    /// <summary>
+    /// Looks again for artwork that wasn't found or was only low resolution (after a SteamGridDB key starts working).
+    /// The file clean-up runs in the background; the images reload as tiles come into view.
+    /// </summary>
+    public async Task RetryMissingArtworkAsync()
+    {
+        await Task.Run(() => ArtworkService.ForgetGaps());
+        foreach (var e in Library.Data.Items) if (e.ArtSteamAppId < 0) e.ArtSteamAppId = 0;
+        InvalidateAllImages();
+    }
+
     public void RefreshAllEntries()
     {
         SyncViewModels();
