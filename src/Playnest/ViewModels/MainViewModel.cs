@@ -50,8 +50,13 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     // ------------------------------------------------------------------ observable state
 
     public ObservableCollection<SidebarItem> Filters { get; } = new();
-    public ObservableCollection<GameRow> Rows { get; } = new();
-    public ObservableCollection<GameViewModel> ListItems { get; } = new();
+    /// <summary>
+    /// Everything the library scrolls through, in order: the "Continue playing" strip (if shown), then either
+    /// rows of tiles or the list header and one item per game. It is one flat list so that a single virtualizing
+    /// panel sits directly in the scroll viewer; nesting it inside other panels made the scroll range come out
+    /// too short (the last row was cut off and could not be scrolled to).
+    /// </summary>
+    public ObservableCollection<object> Feed { get; } = new();
     public ObservableCollection<GameViewModel> RecentGames { get; } = new();
     public ObservableCollection<GameViewModel> Launchers { get; } = new();
     public ObservableCollection<GameViewModel> Tools { get; } = new();
@@ -371,7 +376,7 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
     {
         var cols = ComputeColumns();
         if (cols != _columns) { _columns = cols; Regroup(); }
-        UpdateRecent();
+        if (UpdateRecent()) SyncRecentStrip();
     }
 
     private int ComputeColumns()
@@ -425,18 +430,33 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         CountText = total > 0 ? $"{games} · {SizeCalculator.Format(total)}" : games;
     }
 
-    /// <summary>"Continue playing" strip: as many cards as fit on one line.</summary>
-    private void UpdateRecent()
+    /// <summary>"Continue playing" strip: as many cards as fit on one line. Returns whether it changed.</summary>
+    private bool UpdateRecent()
     {
         int fit = Math.Clamp((int)((ViewportWidth + 12) / 262), 1, 8);
         bool show = Settings.ShowRecentRow && _filterKey == "all" && SearchText.Trim().Length == 0;
         var wanted = show
             ? Games.Where(g => IsRecent(g.Entry)).OrderByDescending(g => g.Entry.LastPlayedUtc).Take(fit).ToList()
             : new List<GameViewModel>();
-        if (wanted.SequenceEqual(RecentGames)) return;
+        if (wanted.SequenceEqual(RecentGames)) return false;
         RecentGames.Clear();
         foreach (var g in wanted) RecentGames.Add(g);
         OnPropertyChanged(nameof(ShowRecent));
+        return true;
+    }
+
+    /// <summary>Puts the current "Continue playing" strip at the top of <see cref="Feed"/> (or removes it).</summary>
+    private void SyncRecentStrip()
+    {
+        bool has = Feed.Count > 0 && Feed[0] is RecentStrip;
+        if (!ShowRecent)
+        {
+            if (has) Feed.RemoveAt(0);
+            return;
+        }
+        var strip = new RecentStrip(RecentGames.ToList());
+        if (has) Feed[0] = strip;
+        else Feed.Insert(0, strip);
     }
 
     private IEnumerable<GameViewModel> Sort(IEnumerable<GameViewModel> q)
@@ -461,15 +481,20 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
 
     private void Regroup()
     {
-        Rows.Clear();
-        ListItems.Clear();
+        Feed.Clear();
+        if (ShowRecent) Feed.Add(new RecentStrip(RecentGames.ToList()));
         if (IsListView)
         {
-            foreach (var g in _filtered) ListItems.Add(g);
+            if (_filtered.Count > 0) Feed.Add(ListHeader.Instance);
+            foreach (var g in _filtered) Feed.Add(g);
             return;
         }
+        bool covers = IsCoverView;
         for (int i = 0; i < _filtered.Count; i += _columns)
-            Rows.Add(new GameRow(_filtered.GetRange(i, Math.Min(_columns, _filtered.Count - i))));
+        {
+            var items = _filtered.GetRange(i, Math.Min(_columns, _filtered.Count - i));
+            Feed.Add(covers ? new CoverRow(items) : new IconRow(items));
+        }
     }
 
     // ------------------------------------------------------------------ pages, view options

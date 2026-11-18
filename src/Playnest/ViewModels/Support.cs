@@ -22,9 +22,27 @@ public interface IUiService
 public enum AppPage { Library, Launchers, Settings }
 
 /// <summary>One row of the virtualized grid (a few tiles side by side).</summary>
-public sealed class GameRow(IReadOnlyList<GameViewModel> items)
+public abstract class GameRow(IReadOnlyList<GameViewModel> items)
 {
     public IReadOnlyList<GameViewModel> Items { get; } = items;
+}
+
+/// <summary>A row of cover tiles in <see cref="MainViewModel.Feed"/>.</summary>
+public sealed class CoverRow(IReadOnlyList<GameViewModel> items) : GameRow(items);
+
+/// <summary>A row of icon tiles in <see cref="MainViewModel.Feed"/>.</summary>
+public sealed class IconRow(IReadOnlyList<GameViewModel> items) : GameRow(items);
+
+/// <summary>The "Continue playing" strip at the top of <see cref="MainViewModel.Feed"/>.</summary>
+public sealed class RecentStrip(IReadOnlyList<GameViewModel> games)
+{
+    public IReadOnlyList<GameViewModel> Games { get; } = games;
+}
+
+/// <summary>The column headings above the list view in <see cref="MainViewModel.Feed"/>.</summary>
+public sealed class ListHeader
+{
+    public static readonly ListHeader Instance = new();
 }
 
 public sealed partial class SidebarItem : ObservableObject
