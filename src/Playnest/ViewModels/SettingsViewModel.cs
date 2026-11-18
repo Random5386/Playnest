@@ -288,6 +288,42 @@ public sealed partial class SettingsViewModel : ObservableObject
         set => Set(S.SteamGridDbApiKey, value?.Trim() ?? "", v => S.SteamGridDbApiKey = v);
     }
 
+    /// <summary>"Use SteamGridDB for all artwork": SteamGridDB is asked first for every game (other sources are the fallback).</summary>
+    public bool PreferSteamGridDbArt
+    {
+        get => S.PreferSteamGridDbArt;
+        set => Set(S.PreferSteamGridDbArt, value, v => S.PreferSteamGridDbArt = v);
+    }
+
+    [ObservableProperty] public partial string ReplaceStatus { get; set; } = "";
+
+    /// <summary>
+    /// Replaces every game's automatic artwork with SteamGridDB's: turns on "Use SteamGridDB for all artwork", empties the
+    /// artwork cache and lets everything be fetched again. Images chosen by hand (custom artwork) are kept.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReplaceAllArtwork()
+    {
+        if (!ArtworkService.IsValidKey(S.SteamGridDbApiKey.Trim()))
+        {
+            ReplaceStatus = "Paste your SteamGridDB key above (and press Test) first.";
+            return;
+        }
+        if (!await _main.Ui.Confirm("Replace all artwork with SteamGridDB?",
+                "Every game's cover, icon and background is downloaded again from SteamGridDB. Games SteamGridDB doesn't have keep their usual artwork, and images you chose yourself are kept.",
+                "Replace all"))
+            return;
+        if (!S.DownloadArtwork) DownloadArtwork = true;
+        PreferSteamGridDbArt = true;
+        ReplaceStatus = "Replacing artwork…";
+        await Task.Run(() => ArtworkService.ClearAll());
+        foreach (var e in _main.Library.Data.Items) if (e.ArtSteamAppId < 0) e.ArtSteamAppId = 0;
+        _main.InvalidateAllImages();
+        UpdateCacheSize();
+        ReplaceStatus = "Artwork is being downloaded from SteamGridDB as you scroll.";
+        _main.ShowToast("Replacing artwork with SteamGridDB. Images load as you scroll.");
+    }
+
     public int ImageQualityIndex { get => (int)S.ImageQuality; set { if (Set(S.ImageQuality, (ImageQuality)value, v => S.ImageQuality = v, layout: true)) _main.InvalidateAllImages(); } }
 
     [ObservableProperty] public partial string KeyStatus { get; set; } = "";

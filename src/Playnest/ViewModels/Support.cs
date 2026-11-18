@@ -13,6 +13,8 @@ public interface IUiService
     Task<string?> PickSaveFile(string title, string suggestedName, string patternName, string[] patterns);
     Task<bool> Confirm(string title, string message, string confirmText, bool danger = false);
     Task<bool> EditGame(EditGameViewModel vm);
+    /// <summary>Shows the SteamGridDB artwork picker; returns the chosen image's bytes, or null when cancelled.</summary>
+    Task<byte[]?> PickArtwork(ArtworkPickerViewModel vm);
     void HideForGame(LaunchBehavior behavior);
     void RestoreAfterGame();
     void ApplyWindowSettings();

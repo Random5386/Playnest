@@ -89,6 +89,8 @@ public sealed class AppSettings
     // ---------- Artwork ----------
     public bool DownloadArtwork { get; set; } = true;
     public string SteamGridDbApiKey { get; set; } = "";
+    /// <summary>Ask SteamGridDB first for every game's artwork (needs a key); other sources are only the fallback.</summary>
+    public bool PreferSteamGridDbArt { get; set; }
     public ImageQuality ImageQuality { get; set; } = ImageQuality.Balanced;
 
     // ---------- Performance ----------

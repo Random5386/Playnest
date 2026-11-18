@@ -132,6 +132,7 @@
                                         <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
                                         <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                         <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                        <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseArtworkCommand}" />
                                         <Separator />
                                         <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                                       </MenuItem>
@@ -213,6 +214,7 @@
                                       <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
                                       <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                       <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                      <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseArtworkCommand}" />
                                       <Separator />
                                       <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                                     </MenuItem>
@@ -312,6 +314,7 @@
                                       <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
                                       <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                       <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                      <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseArtworkCommand}" />
                                       <Separator />
                                       <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                                     </MenuItem>
@@ -401,6 +404,7 @@
                                 <MenuItem Header="Change cover…" Command="{Binding ChangeCoverCommand}" />
                                 <MenuItem Header="Change icon…" Command="{Binding ChangeIconCommand}" />
                                 <MenuItem Header="Change background…" Command="{Binding ChangeHeroCommand}" />
+                                <MenuItem Header="Choose from SteamGridDB…" Command="{Binding ChooseArtworkCommand}" />
                                 <Separator />
                                 <MenuItem Header="Find artwork again" Command="{Binding RefreshArtworkCommand}" />
                               </MenuItem>
