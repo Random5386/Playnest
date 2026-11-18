@@ -414,6 +414,21 @@
           </StackPanel>
           <Grid Classes="setting" ColumnDefinitions="*,Auto">
             <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Use SteamGridDB for all artwork" />
+              <TextBlock Text="Asks SteamGridDB first for every game's cover, icon and background (needs the key above). Other sources are only used when SteamGridDB has nothing. Applies to artwork fetched from now on; Replace all redoes the rest. To pick one game's artwork yourself, right-click it → Artwork → Choose from SteamGridDB." Classes="subtle small" TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1" IsChecked="{Binding PreferSteamGridDbArt}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Replace all artwork" />
+              <TextBlock Text="Downloads every game's artwork again from SteamGridDB now. Images you chose yourself are kept." Classes="subtle small" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ReplaceStatus}" Classes="subtle small" TextWrapping="Wrap" IsVisible="{Binding ReplaceStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Replace all…" Command="{Binding ReplaceAllArtworkCommand}" />
+          </Grid>
+          <Grid Classes="setting" ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
               <TextBlock Text="Image quality" />
               <TextBlock Text="Images are decoded at the size they're shown. Higher quality looks sharper on high-DPI screens but uses more memory." Classes="subtle small" TextWrapping="Wrap" />
             </StackPanel>

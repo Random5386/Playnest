@@ -28,6 +28,7 @@ public interface IGameHost
     Task Uninstall(GameViewModel g);
     Task Remove(GameViewModel g);
     Task ChangeImage(GameViewModel g, ArtKind kind);
+    Task ChooseArtwork(GameViewModel g, ArtKind kind);
     void RefreshArtwork(GameViewModel g);
     void Select(GameViewModel g);
 }
@@ -311,6 +312,7 @@ public sealed partial class GameViewModel : ObservableObject
     [RelayCommand] private Task ChangeIcon() => _host.ChangeImage(this, ArtKind.Icon);
     [RelayCommand] private Task ChangeHero() => _host.ChangeImage(this, ArtKind.Hero);
     [RelayCommand] private void RefreshArtwork() => _host.RefreshArtwork(this);
+    [RelayCommand] private Task ChooseArtwork() => _host.ChooseArtwork(this, ArtKind.Cover);
     [RelayCommand] private void Select() => _host.Select(this);
 
     // ------------------------------------------------------------------ formatting

@@ -13,6 +13,7 @@ public enum ArtKind { Cover, Icon, Hero }
 /// <summary>
 /// Finds the best available artwork for a game and caches it on disk:
 /// custom image → store files already on disk → Steam's CDN (no key) → SteamGridDB (with key) → icon in the exe.
+/// With "Use SteamGridDB for all artwork" on, SteamGridDB is asked first and the rest is only the fallback.
 /// Work runs on at most two background threads; results are remembered so nothing is fetched twice.
 /// </summary>
 public sealed partial class ArtworkService
@@ -166,9 +167,21 @@ public sealed partial class ArtworkService
             return null;
         }
 
-        byte[]? best;
-        if (kind == ArtKind.Icon) best = await ResolveIconAsync(e, s).ConfigureAwait(false);
-        else
+        byte[]? best = null;
+        // "Use SteamGridDB for all artwork": SteamGridDB comes first; everything below is only the fallback.
+        if (PrefersSteamGridDb(s, e))
+        {
+            await _netGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                long steamId = await SteamIdAsync(e).ConfigureAwait(false);
+                best = await SteamGridDbAsync(e, kind, steamId, s.SteamGridDbApiKey.Trim()).ConfigureAwait(false);
+            }
+            finally { _netGate.Release(); }
+        }
+
+        if (best is null && kind == ArtKind.Icon) best = await ResolveIconAsync(e, s).ConfigureAwait(false);
+        else if (best is null)
         {
             // 1) Local copy (fast, offline). Good enough unless it is a low-resolution cover.
             byte[]? local;
@@ -199,6 +212,10 @@ public sealed partial class ArtworkService
         try { File.WriteAllText(miss, hasKey ? MissWithKey : ""); File.SetLastWriteTimeUtc(miss, DateTime.UtcNow); } catch { }
         return null;
     }
+
+    /// <summary>True when SteamGridDB should be asked before any other source (games only; launchers and tools keep their own art).</summary>
+    internal static bool PrefersSteamGridDb(AppSettings s, GameEntry e) =>
+        s.PreferSteamGridDbArt && s.DownloadArtwork && IsValidKey(s.SteamGridDbApiKey.Trim()) && e.EffectiveKind == ItemKind.Game;
 
     /// <summary>Written into a ".miss" marker when SteamGridDB was part of the search.</summary>
     private const string MissWithKey = "sgdb";
@@ -561,13 +578,7 @@ public sealed partial class ArtworkService
     /// <summary>Downloads the first usable image of one kind for a SteamGridDB game reference ("steam/123" or "game/456").</summary>
     private static async Task<byte[]?> SgdbImageAsync(string gameRef, ArtKind kind, string key)
     {
-        string url = kind switch
-        {
-            ArtKind.Cover => $"{SgdbApi}/grids/{gameRef}?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false",
-            ArtKind.Hero => $"{SgdbApi}/heroes/{gameRef}?types=static&nsfw=false&humor=false",
-            _ => $"{SgdbApi}/icons/{gameRef}?types=static&mimes=image/png&nsfw=false&humor=false",
-        };
-        using var res = await SgdbGet(url, key).ConfigureAwait(false);
+        using var res = await SgdbGet(SgdbImagesUrl(gameRef, kind), key).ConfigureAwait(false);
         if (res is null) return null;
         foreach (var item in res.RootElement.GetProperty("data").EnumerateArray().Take(3))
         {
@@ -605,6 +616,127 @@ public sealed partial class ArtworkService
         using var doc = await SgdbGet($"{SgdbApi}/search/autocomplete/portal", key).ConfigureAwait(false);
         return doc is not null;
     }
+
+    // ------------------------------------------------------------------ SteamGridDB picker (choose artwork by hand)
+
+    /// <summary>A game on SteamGridDB.</summary>
+    public sealed record SgdbGame(long Id, string Name, int Year)
+    {
+        public string Label => Year > 0 ? $"{Name} ({Year})" : Name;
+    }
+
+    /// <summary>One image on SteamGridDB: the full-size download and a small preview.</summary>
+    public sealed record SgdbImage(string Url, string Thumb, int Width, int Height);
+
+    /// <summary>The key from Settings, or null when there is no usable key.</summary>
+    private string? PickerKey()
+    {
+        var key = _settings().SteamGridDbApiKey.Trim();
+        return IsValidKey(key) ? key : null;
+    }
+
+    public bool HasSteamGridDbKey => PickerKey() is not null;
+
+    /// <summary>Searches SteamGridDB's games by name (empty when there is no key or nothing matched).</summary>
+    public async Task<List<SgdbGame>> SearchSteamGridDbAsync(string name)
+    {
+        var list = new List<SgdbGame>();
+        name = name.Trim();
+        if (PickerKey() is not { } key || name.Length == 0) return list;
+        try
+        {
+            using var doc = await SgdbGet($"{SgdbApi}/search/autocomplete/{Uri.EscapeDataString(name)}", key).ConfigureAwait(false);
+            if (doc is null) return list;
+            foreach (var x in doc.RootElement.GetProperty("data").EnumerateArray())
+                if (ReadGame(x) is { } g) list.Add(g);
+        }
+        catch (Exception ex) { Log.Error("steamgriddb search", ex); }
+        return list;
+    }
+
+    /// <summary>
+    /// The SteamGridDB game that best matches <paramref name="e"/>: by Steam id when it has one, otherwise the best name
+    /// match from a search (or the top result). Null when there is no key or nothing was found.
+    /// </summary>
+    public async Task<SgdbGame?> FindSteamGridDbGameAsync(GameEntry e)
+    {
+        if (PickerKey() is not { } key) return null;
+        try
+        {
+            long steamId = await SteamIdAsync(e).ConfigureAwait(false);
+            if (steamId > 0)
+            {
+                var json = await SafeHttp.GetStringAsync($"{SgdbApi}/games/steam/{steamId}", key).ConfigureAwait(false);
+                if (json is not null)
+                {
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                        doc.RootElement.TryGetProperty("success", out var ok) && ok.ValueKind == JsonValueKind.True &&
+                        doc.RootElement.TryGetProperty("data", out var data) && ReadGame(data) is { } bySteam)
+                        return bySteam;
+                }
+            }
+            var found = await SearchSteamGridDbAsync(e.DisplayName).ConfigureAwait(false);
+            if (found.Count == 0) return null;
+            var best = BestNameMatch(e.DisplayName, found.Select(g => (g.Name, g.Id)).ToList());
+            return found.FirstOrDefault(g => g.Id == best) ?? found[0];
+        }
+        catch (Exception ex) { Log.Error("steamgriddb game", ex); }
+        return null;
+    }
+
+    /// <summary>Lists the images of one kind that SteamGridDB has for a game (at most <paramref name="max"/>).</summary>
+    public async Task<List<SgdbImage>> SteamGridDbImagesAsync(long gameId, ArtKind kind, int max = 60)
+    {
+        var list = new List<SgdbImage>();
+        if (PickerKey() is not { } key || gameId <= 0) return list;
+        try
+        {
+            using var doc = await SgdbGet(SgdbImagesUrl($"game/{gameId}", kind), key).ConfigureAwait(false);
+            if (doc is null) return list;
+            foreach (var x in doc.RootElement.GetProperty("data").EnumerateArray())
+            {
+                if (ReadImageInfo(x) is { } img) list.Add(img);
+                if (list.Count >= max) break;
+            }
+        }
+        catch (Exception ex) { Log.Error("steamgriddb images", ex); }
+        return list;
+    }
+
+    /// <summary>Downloads a SteamGridDB image or preview (checked like every other download).</summary>
+    public static Task<byte[]?> DownloadSteamGridDbImageAsync(string url) => DownloadImageAsync(url);
+
+    private static SgdbGame? ReadGame(JsonElement x)
+    {
+        if (x.ValueKind != JsonValueKind.Object || !x.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.Number || !idEl.TryGetInt64(out var id) || id <= 0) return null;
+        var name = x.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "";
+        int year = 0;
+        if (x.TryGetProperty("release_date", out var rd) && rd.ValueKind == JsonValueKind.Number && rd.TryGetInt64(out var unix) && unix > 0)
+        {
+            try { year = DateTimeOffset.FromUnixTimeSeconds(unix).Year; } catch (ArgumentOutOfRangeException) { }
+        }
+        return new SgdbGame(id, name.Length > 200 ? name[..200] : name, year);
+    }
+
+    private static SgdbImage? ReadImageInfo(JsonElement x)
+    {
+        if (x.ValueKind != JsonValueKind.Object) return null;
+        string? Str(string p) => x.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        int Int(string p) => x.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
+        var url = Str("url");
+        if (!SafeHttp.IsAllowed(url)) return null;
+        var thumb = Str("thumb");
+        if (!SafeHttp.IsAllowed(thumb)) thumb = url;
+        return new SgdbImage(url!, thumb!, Int("width"), Int("height"));
+    }
+
+    private static string SgdbImagesUrl(string gameRef, ArtKind kind) => kind switch
+    {
+        ArtKind.Cover => $"{SgdbApi}/grids/{gameRef}?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false",
+        ArtKind.Hero => $"{SgdbApi}/heroes/{gameRef}?types=static&nsfw=false&humor=false",
+        _ => $"{SgdbApi}/icons/{gameRef}?types=static&mimes=image/png&nsfw=false&humor=false",
+    };
 
     internal static bool IsValidKey(string key) => key.Length is >= 8 and <= 128 && key.All(char.IsAsciiLetterOrDigit);
 

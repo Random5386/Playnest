@@ -670,6 +670,45 @@ Section("Network safety (everything that touches the internet)");
     Check(sgdbArt.GetAsync(noMatch, ArtKind.Cover).Result is null, "with a Steam id, an unrelated SteamGridDB search result isn't used");
     ArtworkService.ForgetGaps();
     Check(!Directory.EnumerateFiles(AppPaths.ArtDir, "*.miss", SearchOption.AllDirectories).Any(), "retrying missing art forgets every \"not found\" marker");
+
+    // Choosing artwork by hand (SteamGridDB picker)
+    handler.Routes[$"{sgdbApi}/search/autocomplete/Gem"] = r => Sgdb(r, """{"success":true,"data":[{"id":4242,"name":"Gemfall","release_date":1500000000},{"id":"x"},{"id":-5,"name":"Bad"},{"id":4244,"name":"Gem Rush"}]}""");
+    var found = sgdbArt.SearchSteamGridDbAsync("Gem").Result;
+    Eq(2, found.Count, "picker search keeps only valid games");
+    Eq("Gemfall (2017)", found.FirstOrDefault()?.Label, "picker game shows its release year");
+    handler.Routes[$"{sgdbApi}/grids/game/4242{gridQuery}"] = r => Sgdb(r, """
+        {"success":true,"data":[
+          {"url":"https://cdn2.steamgriddb.com/grid/a.png","thumb":"https://cdn2.steamgriddb.com/thumb/a.jpg","width":600,"height":900},
+          {"url":"https://evil.com/grid/b.png","thumb":"https://cdn2.steamgriddb.com/thumb/b.jpg","width":600,"height":900},
+          {"url":"https://cdn2.steamgriddb.com/grid/c.png","thumb":"https://evil.com/thumb/c.jpg"},
+          {"nothing":true}
+        ]}
+        """);
+    var pics = sgdbArt.SteamGridDbImagesAsync(4242, ArtKind.Cover).Result;
+    Eq(2, pics.Count, "picker lists only images on allowed hosts");
+    Check(pics.Count == 2 && pics[0].Thumb.EndsWith("/thumb/a.jpg") && pics[0].Width == 600 && pics[1].Thumb == pics[1].Url,
+        "picker uses the preview when it's safe, otherwise the full image");
+    Eq(4242L, sgdbArt.FindSteamGridDbGameAsync(gemfall).Result?.Id, "picker finds a game without a Steam id by name");
+    handler.Routes[$"{sgdbApi}/games/steam/777003"] = r => Sgdb(r, """{"success":true,"data":{"id":5151,"name":"Shardlight"}}""");
+    var shard = new GameEntry { Id = "steam:777003", Name = "Shardlight", Source = GameSource.Steam, SteamAppId = 777003 };
+    Eq(5151L, sgdbArt.FindSteamGridDbGameAsync(shard).Result?.Id, "picker finds a Steam game by its Steam id");
+    Check(ArtworkService.DownloadSteamGridDbImageAsync("https://cdn2.steamgriddb.com/grid/gemfall.png").Result is { } picked && ArtworkService.IsImage(picked), "chosen image downloads and is checked");
+
+    // "Use SteamGridDB for all artwork"
+    var preferSettings = new AppSettings { DownloadArtwork = true, SteamGridDbApiKey = sgdbKey, PreferSteamGridDbArt = true };
+    Check(ArtworkService.PrefersSteamGridDb(preferSettings, gemfall), "SteamGridDB comes first when the option is on");
+    Check(!ArtworkService.PrefersSteamGridDb(new AppSettings { DownloadArtwork = true, SteamGridDbApiKey = sgdbKey }, gemfall), "not first when the option is off");
+    Check(!ArtworkService.PrefersSteamGridDb(new AppSettings { DownloadArtwork = true, PreferSteamGridDbArt = true }, gemfall), "not first without a key");
+    Check(!ArtworkService.PrefersSteamGridDb(preferSettings, new GameEntry { Id = "x:launcher", Name = "Steam", Source = GameSource.System, Kind = ItemKind.Launcher }), "launchers keep their own artwork");
+    var preferArt = new ArtworkService(() => preferSettings);
+    var glowvale = new GameEntry { Id = "steam:777004", Name = "Glowvale", Source = GameSource.Steam, SteamAppId = 777004 };
+    handler.Routes[$"{sgdbApi}/grids/steam/777004{gridQuery}"] = r => Sgdb(r, """{"success":true,"data":[{"url":"https://cdn2.steamgriddb.com/grid/gemfall.png"}]}""");
+    Check(preferArt.GetAsync(glowvale, ArtKind.Cover).Result is { } gv && File.ReadAllBytes(gv).SequenceEqual(sgdbPng), "with the option on, the cover comes from SteamGridDB");
+
+    // Without a key the picker finds nothing (and sends nothing)
+    var noKeyArt = new ArtworkService(() => new AppSettings());
+    Check(!noKeyArt.HasSteamGridDbKey && noKeyArt.SearchSteamGridDbAsync("Gem").Result.Count == 0 && noKeyArt.SteamGridDbImagesAsync(4242, ArtKind.Cover).Result.Count == 0,
+        "picker does nothing without a key");
     SafeHttp.TestHandler = null;
 }
 

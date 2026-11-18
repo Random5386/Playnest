@@ -258,6 +258,13 @@ public partial class MainWindow : Window, IUiService
         return await dlg.ShowDialog<bool>(this);
     }
 
+    public async Task<byte[]?> PickArtwork(ArtworkPickerViewModel vm)
+    {
+        EnsureVisibleForDialog();
+        var dlg = new ArtworkPickerWindow { DataContext = vm };
+        return await dlg.ShowDialog<byte[]?>(this);
+    }
+
     private void EnsureVisibleForDialog()
     {
         if (!IsVisible && Application.Current is App app) app.ShowMainWindow();

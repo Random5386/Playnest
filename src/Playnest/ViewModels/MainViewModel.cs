@@ -818,6 +818,57 @@ public sealed partial class MainViewModel : ObservableObject, IGameHost
         g.ReloadImages(force: false);
     }
 
+    /// <summary>Opens the SteamGridDB picker; the chosen image becomes the game's own (custom) artwork.</summary>
+    public async Task ChooseArtwork(GameViewModel g, ArtKind kind)
+    {
+        if (!Artwork.HasSteamGridDbKey)
+        {
+            ShowToast("Add a SteamGridDB API key in Settings → Artwork to choose artwork.", actionText: "Settings", action: () => CurrentPage = AppPage.Settings);
+            return;
+        }
+        using var vm = new ArtworkPickerViewModel(g.Entry, Artwork, kind);
+        var bytes = await Ui.PickArtwork(vm);
+        if (bytes is null) return;
+        var e = g.Entry;
+        var name = vm.Kind switch { ArtKind.Cover => "cover", ArtKind.Icon => "icon", _ => "hero" };
+        var path = SaveCustomImage(e, bytes, name);
+        if (path is null)
+        {
+            ShowToast("Couldn't save that image.", error: true);
+            return;
+        }
+        switch (vm.Kind)
+        {
+            case ArtKind.Cover: e.CustomCover = path; break;
+            case ArtKind.Icon: e.CustomIcon = path; break;
+            default: e.CustomHero = path; break;
+        }
+        Library.SaveSoon();
+        g.ReloadImages(force: false);
+        var what = vm.Kind switch { ArtKind.Cover => "cover", ArtKind.Icon => "icon", _ => "background" };
+        ShowToast($"New {what} for {g.Name}.");
+    }
+
+    /// <summary>Saves downloaded image bytes (already checked to be a real image) into Playnest's custom artwork folder.</summary>
+    private static string? SaveCustomImage(GameEntry e, byte[] bytes, string kind)
+    {
+        if (!ArtworkService.IsImage(bytes)) return null;
+        try
+        {
+            Directory.CreateDirectory(AppPaths.CustomArtDir);
+            var safe = string.Concat(e.Id.Select(c => char.IsLetterOrDigit(c) ? c : '_'));
+            var ext = bytes[0] == 0xFF ? ".jpg" : bytes[0] == 0x89 ? ".png" : ".webp";
+            var dest = Path.Combine(AppPaths.CustomArtDir, $"{safe}-{kind}-{DateTime.UtcNow.Ticks}{ext}");
+            File.WriteAllBytes(dest, bytes);
+            return dest;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("save chosen artwork", ex);
+            return null;
+        }
+    }
+
     public void RefreshArtwork(GameViewModel g)
     {
         Artwork.Clear(g.Entry);
