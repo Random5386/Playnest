@@ -90,6 +90,8 @@ public sealed partial class GameViewModel : ObservableObject
     public string PlaytimeText => FormatPlaytime(Entry.TotalPlaytimeSeconds);
     public string SizeText => Services.SizeCalculator.Format(Entry.SizeBytes);
     public bool HasSize => Entry.SizeBytes > 0;
+    /// <summary>Size under a tile; blank (but still a line tall) when unknown, so every row of tiles is the same height.</summary>
+    public string TileSizeText => HasSize ? SizeText : "\u00A0";
     public string LastPlayedText => Entry.LastPlayedUtc is { } d ? FormatAgo(d) : "Never";
     public bool HasPlaytime => Entry.TotalPlaytimeSeconds > 0;
     public string FavoriteMenuText => IsFavorite ? "Remove from favourites" : "Add to favourites";
@@ -292,7 +294,7 @@ public sealed partial class GameViewModel : ObservableObject
         _placeholder = null;
         foreach (var p in new[] { nameof(Name), nameof(SortName), nameof(Kind), nameof(SourceLabel), nameof(SourceFull), nameof(IsFavorite),
                      nameof(IsMissing), nameof(PlaytimeText), nameof(LastPlayedText), nameof(HasPlaytime), nameof(FavoriteMenuText),
-                     nameof(Initials), nameof(Placeholder), nameof(InstallDir), nameof(HasFolder), nameof(CanUninstall), nameof(SizeText), nameof(HasSize) })
+                     nameof(Initials), nameof(Placeholder), nameof(InstallDir), nameof(HasFolder), nameof(CanUninstall), nameof(SizeText), nameof(HasSize), nameof(TileSizeText) })
             OnPropertyChanged(p);
     }
 
