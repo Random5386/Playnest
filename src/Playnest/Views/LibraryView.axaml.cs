@@ -42,7 +42,7 @@ public partial class LibraryView : UserControl
     private void UpdateViewport(double width)
     {
         if (_vm is null || width <= 0) return;
-        // ScrollViewer padding (28 + 14) and room for the scroll bar.
+        // The list's side margins (28 + 14) and room for the scroll bar.
         _vm.ViewportWidth = Math.Max(200, width - 28 - 14 - 14);
     }
 
