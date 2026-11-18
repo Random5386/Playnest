@@ -22,6 +22,9 @@ public partial class MainWindow : Window, IUiService
         InitializeComponent();
         // Smooth scaling for artwork (applies to every image in the window; icons are often scaled up or down).
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.HighQuality);
+        // A maximised window moved to another screen, or a display scale change, needs a new content inset.
+        PositionChanged += (_, _) => QueueKeepOnScreen();
+        ScalingChanged += (_, _) => QueueKeepOnScreen();
         TitleBar.PointerPressed += (_, e) =>
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
@@ -100,6 +103,51 @@ public partial class MainWindow : Window, IUiService
     {
         base.OnOpened(e);
         _hiddenToTray = false;
+        QueueKeepOnScreen();
+    }
+
+    // ------------------------------------------------------------------ keep content on screen when maximised
+
+    private bool _keepOnScreenQueued;
+
+    private void QueueKeepOnScreen()
+    {
+        if (_keepOnScreenQueued) return;
+        _keepOnScreenQueued = true;
+        // After layout and the window move have settled.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            _keepOnScreenQueued = false;
+            KeepContentOnScreen();
+        }, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Playnest draws its own title bar (ExtendClientAreaToDecorationsHint). When such a window is maximised, Windows
+    /// can make it bigger than the usable part of the screen: it reaches under the taskbar and past the screen edges.
+    /// Everything there is hidden, which cut off the bottom of the library (the last row, its bottom padding and the
+    /// scroll bar's down arrow) and the sidebar. The window's content is padded so it stays inside the screen's
+    /// working area. A normal (not maximised) window is left exactly as it is.
+    /// </summary>
+    private void KeepContentOnScreen()
+    {
+        var inset = default(Thickness);
+        if (WindowState == WindowState.Maximized && Screens.ScreenFromWindow(this) is { } screen && ClientSize.Width > 0)
+        {
+            double scale = RenderScaling > 0 ? RenderScaling : 1;
+            var area = screen.WorkingArea;
+            var topLeft = this.PointToScreen(new Point(0, 0));
+            var bottomRight = this.PointToScreen(new Point(ClientSize.Width, ClientSize.Height));
+            static double Over(int pixels, double scale) => pixels > 0 ? Math.Ceiling(pixels / scale) : 0;
+            inset = new Thickness(
+                Over(area.X - topLeft.X, scale),
+                Over(area.Y - topLeft.Y, scale),
+                Over(bottomRight.X - area.Right, scale),
+                Over(bottomRight.Y - area.Bottom, scale));
+            // Never more than a taskbar's worth: anything bigger means the numbers are off, so don't squeeze the window.
+            if (inset.Left > 200 || inset.Top > 200 || inset.Right > 200 || inset.Bottom > 200) inset = default;
+        }
+        if (Padding != inset) Padding = inset;
     }
 
 
@@ -203,6 +251,7 @@ public partial class MainWindow : Window, IUiService
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == WindowStateProperty || change.Property == ClientSizeProperty) QueueKeepOnScreen();
         // Whenever the window becomes visible, however it was opened, artwork must be switched back on.
         if (change.Property == IsVisibleProperty && change.GetNewValue<bool>()) _vm?.ResumeImages();
         if (change.Property == ActualTransparencyLevelProperty && _vm is not null)
